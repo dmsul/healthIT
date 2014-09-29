@@ -73,7 +73,7 @@ foreach lhv in live_cpoe our_basic_notes our_comprehensive {
 }
 
 
-**	First Stage
+**	Second Stage
 if $CONTROL == 1 local replace replace
 else local replace
 foreach lhv in z_core z_read z_mort {
