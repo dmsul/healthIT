@@ -64,6 +64,18 @@
 		footnote
 		state
 		
+	4/2014 (2011_trian):
+		providerid
+		hosp_name
+		state
+		condition
+		measure_label // Starting here, mortality or readmit
+		score
+		category
+		score_loCI
+		score_hiCI
+		sample_size
+		footnote
 		
 		
 */
@@ -145,6 +157,25 @@ assert length(hosp_id)==6
 append using `base'
 save `base', replace
 
+**********
+import excel hosp_id hosp_name state condition measure_label score category ///
+            score_loCI score_hiCI sample footnote ///
+            using $SRCROOT/dbo_vwHQI_HOSP_MORTALITY_READM_XWLK_d201404.xlsx, ///
+            clear
+drop if condition=="Condition"
+gen year = 2012
+
+drop footnote
+
+destring score* sample, i("Not Available") replace
+replace hosp_id = subinstr(hosp_id,"'","",.)
+tostring hosp_id, replace
+replace hosp_id = "0" + hosp_id if length(hosp_id)<6
+assert length(hosp_id)==6
+
+append using `base'
+save `base', replace
+
 gen measure = ""
 replace measure = "pn_mort" if regexm(measure_label,"neumonia") & regexm(measure_label,"ortality")
 replace measure = "pn_read" if regexm(measure_label,"neumonia") & regexm(measure_label,"eadmis")
@@ -154,6 +185,8 @@ replace measure = "ha_read" if regexm(measure_label,"ttack") & regexm(measure_la
 
 replace measure = "hf_mort" if regexm(measure_label,"ailure") & regexm(measure_label,"ortality")
 replace measure = "hf_read" if regexm(measure_label,"ailure") & regexm(measure_label,"eadmis")
+
+drop if measure==""
 
 keep hosp_id score sample year measure
 egen hospyr = group(hosp_id year)
@@ -191,6 +224,7 @@ drop pn_read ha_read hf_read
 */
 
 
-save ../dta/temp-mortality, replace
+//save ../dta/temp-mortality, replace
+save ../dta/mortality-Aug28, replace
 
 

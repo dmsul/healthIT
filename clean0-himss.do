@@ -1,12 +1,12 @@
 clear all
 set more off
 /*
-	This file creates a panel abstract from the NBER stash of HIMSS data
-	and puts it in the designated user fileon the NBER UNIX server.
-	
-	Basic CPOE and EHR variables first appear in 2008 data.
+    This file creates a panel abstract from the NBER stash of HIMSS data
+    and puts it in the designated user fileon the NBER UNIX server.
+    
+    Basic CPOE and EHR variables first appear in 2008 data.
 
-	
+    
 */
 
 * OS paths
@@ -18,38 +18,39 @@ global STARTYEAR 2005
 global TABLES cpoedept order CDSS comp pacs
 
 *********************
-**	Dataset variables
+**    Dataset variables
 *********************
 /* Base global is for start year 2008. Other variables added as necessary */
 
-	*HA Entity variables
+    *HA Entity variables
 
 global HAEntityKeep /// 
-			uniqueid haentityid medicarenumber parentid /// ID: panel, x-sec, outside data
-			name address1 city state zip cbsa parentid type profitstatus haentitytype ///
-			nofbeds ftetotal 
+    uniqueid haentityid medicarenumber parentid /// ID: panel, x-sec, outside data
+    name address1 city state zip cbsa parentid type profitstatus haentitytype ///
+    nofbeds ftetotal 
 
 global addToHAEntityKeep2006 phystotal
 
-	* Parent Info variables
+    * Parent Info variables
 global ParentInfoKeep /// 
-			annualopcost annualrevenue ///
-			dateofdata /// 
-			isplan isplanyear ///
-			physft
-			
+    annualopcost annualrevenue ///
+    dateofdata /// 
+    isplan isplanyear ///
+    physft
+            
 global addToParentInfoKeep2011 isbudget
 
-	* Acute Info variables
+    * Acute Info variables
 global AcuteInfoKeep haentityid ///
-			nofadjpatientdays nofadjdischarge /// 
-			netoperrevenue totaloperexpense 
+    nofadjpatientdays nofadjdischarge /// 
+    netoperrevenue totaloperexpense 
 
 global addToAcuteInfo2008 electronicmedrecperc cpoephysicianperc ///
-							revmanagedcare revmedicaid revmedicare revother revtradcomm ///
-							noftotpatientdays noftotdischarge
+    revmanagedcare revmedicaid revmedicare revother revtradcomm ///
+    noftotpatientdays noftotdischarge
 global addToAcuteInfo2009 nofnurses 
-global addToAcuteInfo2010 ahaadmissions orgcontroldetail orgcontroloverall payrollexpense cdssdataintegrated
+global addToAcuteInfo2010 ahaadmissions orgcontroldetail orgcontroloverall ///
+    payrollexpense cdssdataintegrated
 global addToAcuteInfo2011 isbudget
 
 
@@ -59,7 +60,7 @@ global addToAcuteInfo2011 isbudget
 ***************************************
 
 /*
-	Table discontinued after 2007
+    Table discontinued after 2007
 */
 
 clear all
@@ -67,26 +68,26 @@ tempfile cpoedept
 save `cpoedept', emptyok
 
 foreach year of numlist $STARTYEAR/2007 {
-	
-	di as err "On year `year'"
-	
-	use $SRCPATH/`year'/UseOfITDepartment, clear
-	
-	gen name = "oth"
-	replace name = "all" if regexm(department,"All")
-	
-	
-	keep haentityid name
-	duplicates drop
-	gen cpoedept_ = 1
-	reshape wide cpoedept_, i(haentityid) j(name) string
-	
-	gen in_cpoedept = 1
-	gen year = `year'
-	
-	append using `cpoedept'
-	save `cpoedept', replace
-	
+    
+    di as err "On year `year'"
+    
+    use $SRCPATH/`year'/UseOfITDepartment, clear
+    
+    gen name = "oth"
+    replace name = "all" if regexm(department,"All")
+    
+    
+    keep haentityid name
+    duplicates drop
+    gen cpoedept_ = 1
+    reshape wide cpoedept_, i(haentityid) j(name) string
+    
+    gen in_cpoedept = 1
+    gen year = `year'
+    
+    append using `cpoedept'
+    save `cpoedept', replace
+    
 }
 
 
@@ -95,7 +96,7 @@ foreach year of numlist $STARTYEAR/2007 {
 ***************************************
 
 /*
-	Discontinued after 2007.
+    Discontinued after 2007.
 */
 
 clear all
@@ -103,29 +104,29 @@ tempfile order
 save `order', emptyok
 
 foreach year of numlist $STARTYEAR/2007 {
-	
-	di as err "On year `year'"
-	
-	use $SRCPATH/`year'/UseOfITOrder, clear
-	
-	gen order = "oth"
-	replace order = "all" if regexm(orderdesc,"All")
-	replace order = "diag" if regexm(orderdesc,"Diagnostic")
-	replace order = "lab" if regexm(orderdesc,"Laboratory")
-	replace order = "rx" if regexm(orderdesc,"Prescription")
-	replace order = "care" if regexm(orderdesc,"Patient care")
-	
-	keep haentityid order
-	duplicates drop
-	gen order_ = 1
-	reshape wide order_, i(haentityid) j(order) string
-	
-	gen in_order = 1
-	gen year = `year'
-	
-	append using `order'
-	save `order', replace
-	
+    
+    di as err "On year `year'"
+    
+    use $SRCPATH/`year'/UseOfITOrder, clear
+    
+    gen order = "oth"
+    replace order = "all" if regexm(orderdesc,"All")
+    replace order = "diag" if regexm(orderdesc,"Diagnostic")
+    replace order = "lab" if regexm(orderdesc,"Laboratory")
+    replace order = "rx" if regexm(orderdesc,"Prescription")
+    replace order = "care" if regexm(orderdesc,"Patient care")
+    
+    keep haentityid order
+    duplicates drop
+    gen order_ = 1
+    reshape wide order_, i(haentityid) j(order) string
+    
+    gen in_order = 1
+    gen year = `year'
+    
+    append using `order'
+    save `order', replace
+    
 }
 
 ***************************************
@@ -141,29 +142,29 @@ save `CDSS', emptyok
 
 foreach year of numlist 2009/2011 {
 
-	di as err "On year `year'"
-	
-	use $SRCPATH/`year'/CDSS, clear
-	
-	
-	gen process = "oth"
-	replace process = "guide" if regexm(processdesc,"guidelines")
-	replace process = "dose" if regexm(processdesc,"dosing")
-	replace process = "drug_int" if regexm(processdesc,"Drug inter")
-	
-	keep haentity process
-	duplicates drop
-	
-	gen cdss_ = 1
-	reshape wide cdss_, i(haentityid) j(process) string
-	
-	
-	gen in_cdss = 1
-	gen year = `year'
-	
-	append using `CDSS'
-	save `CDSS', replace
-	
+    di as err "On year `year'"
+    
+    use $SRCPATH/`year'/CDSS, clear
+    
+    
+    gen process = "oth"
+    replace process = "guide" if regexm(processdesc,"guidelines")
+    replace process = "dose" if regexm(processdesc,"dosing")
+    replace process = "drug_int" if regexm(processdesc,"Drug inter")
+    
+    keep haentity process
+    duplicates drop
+    
+    gen cdss_ = 1
+    reshape wide cdss_, i(haentityid) j(process) string
+    
+    
+    gen in_cdss = 1
+    gen year = `year'
+    
+    append using `CDSS'
+    save `CDSS', replace
+    
 }
 
 ***************************************
@@ -171,8 +172,8 @@ foreach year of numlist 2009/2011 {
 ***************************************
 
 /*
-	Years 2006 and 2007 seem to have self-imputed missings as zeros.
-	Other years have virtually no zeros.
+    Years 2006 and 2007 seem to have self-imputed missings as zeros.
+    Other years have virtually no zeros.
 */
 
 clear all
@@ -181,44 +182,44 @@ save `comp', emptyok
 
 foreach year of numlist $STARTYEAR/2011 {
 
-	di as err "On year `year'"
-	
-	use $SRCPATH/`year'/UseOfITComponent, clear
-	
-	gen my_comp = "oth"
-	if `year' <2008 {
-		replace my_comp = "chart" if component=="CDR"
-		replace my_comp = "results" if component=="Laboratory"
-		replace my_comp = "results" if component=="Radiology"
-		replace my_comp = "orders" if regexm(component,"Order Entry")
-	}
-	else {
-		replace my_comp = "results" if regexm(component,"Results")
-		replace my_comp = "orders" if regexm(component,"Orders")
-		replace my_comp = "chart" if regexm(component,"Chart")
-	}
-	
-	if `year'>=2007 {
-		replace perc = "17" if perc=="1-25%"
-		replace perc = "33" if perc=="26-50%"
-		replace perc = "67" if perc=="51-75%"
-		replace perc = "92" if perc=="76-100%"
-		destring perc, replace
-	}
-	
-		
-	collapse (max) perc , by(haentityid my_comp)
-	
-	rename perc comp_
-	
-	reshape wide comp_, i(haentityid) j(my_comp) string
-	
-	gen in_comp = 1
-	gen year = `year'
-	
-	append using `comp'
-	save `comp', replace
-	
+    di as err "On year `year'"
+    
+    use $SRCPATH/`year'/UseOfITComponent, clear
+    
+    gen my_comp = "oth"
+    if `year' <2008 {
+        replace my_comp = "chart" if component=="CDR"
+        replace my_comp = "results" if component=="Laboratory"
+        replace my_comp = "results" if component=="Radiology"
+        replace my_comp = "orders" if regexm(component,"Order Entry")
+    }
+    else {
+        replace my_comp = "results" if regexm(component,"Results")
+        replace my_comp = "orders" if regexm(component,"Orders")
+        replace my_comp = "chart" if regexm(component,"Chart")
+    }
+    
+    if `year'>=2007 {
+        replace perc = "17" if perc=="1-25%"
+        replace perc = "33" if perc=="26-50%"
+        replace perc = "67" if perc=="51-75%"
+        replace perc = "92" if perc=="76-100%"
+        destring perc, replace
+    }
+    
+        
+    collapse (max) perc , by(haentityid my_comp)
+    
+    rename perc comp_
+    
+    reshape wide comp_, i(haentityid) j(my_comp) string
+    
+    gen in_comp = 1
+    gen year = `year'
+    
+    append using `comp'
+    save `comp', replace
+    
 }
 
 
@@ -227,8 +228,8 @@ foreach year of numlist $STARTYEAR/2011 {
 ***************************************
 
 /*
-	Years 2006 and 2007 seem to have self-imputed missings as zeros.
-	Other years have virtually no zeros.
+    Years 2006 and 2007 seem to have self-imputed missings as zeros.
+    Other years have virtually no zeros.
 */
 
 clear all
@@ -237,31 +238,31 @@ save `pacs', emptyok
 
 foreach year of numlist $STARTYEAR/2011 {
 
-	di as err "On year `year'"
-	
-	use $SRCPATH/`year'/PACSInfo, clear
-	
-	drop imgdistrothercomment 
-	cap drop imgdistroutsideother
+    di as err "On year `year'"
+    
+    use $SRCPATH/`year'/PACSInfo, clear
+    
+    drop imgdistrothercomment 
+    cap drop imgdistroutsideother
 
-	if inlist(`year',2006,2007) egen img_dist = rowmax(imgdist*)
-	else {
-		egen img_dist = rowmin(imgdist*)
-		replace img_dist = -1*img_dist
-	}
-	
-	
-	keep haentityid type img_dist
-	reshape wide img_dist, i(haentityid) j(type) string
-	
-	egen pacs_imgdist = rowmax(img_dist*)
-	
-	keep haentityid pacs_imgdist
-	gen in_pacs = 1
-	gen year = `year'
-	
-	append using `pacs'
-	save `pacs', replace	
+    if inlist(`year',2006,2007) egen img_dist = rowmax(imgdist*)
+    else {
+        egen img_dist = rowmin(imgdist*)
+        replace img_dist = -1*img_dist
+    }
+    
+    
+    keep haentityid type img_dist
+    reshape wide img_dist, i(haentityid) j(type) string
+    
+    egen pacs_imgdist = rowmax(img_dist*)
+    
+    keep haentityid pacs_imgdist
+    gen in_pacs = 1
+    gen year = `year'
+    
+    append using `pacs'
+    save `pacs', replace    
 }
 
 
@@ -269,14 +270,14 @@ foreach year of numlist $STARTYEAR/2011 {
 * Load software 'Application' table, make wide
 ***************************************
 /*
-/*			CHANGES IN THE DATA OVER TIME
-	2007:
-		'medical terminology' eliminated 
-		'enterprise EMR' changed to 'EMR'
-		
-	2009:
-		'EMR' eliminated
-		'physician portal' added
+/*            CHANGES IN THE DATA OVER TIME
+    2007:
+        'medical terminology' eliminated 
+        'enterprise EMR' changed to 'EMR'
+        
+    2009:
+        'EMR' eliminated
+        'physician portal' added
 
 */
 clear all
@@ -286,96 +287,96 @@ summ
 
 foreach year of numlist $STARTYEAR/2011 {
 
-	di as err "On year `year'"
-	
-	use $SRCPATH/`year'/HAEntityApplication, clear
-	
-	keep haentityid application category status contractyear
-	
-	* Make strings uniform
-	replace application = lower(application)
-	replace status = lower(status)
-	replace category = lower(category)
-	
-	* Consolated application names, will be variable names
-	global EMRAPPS data_repos cds cpoe ent_emr order_entry doc_doc med_termin doc_portal nurs_doc lab_is
-	
-	gen myapp = "oth"
-		// EMR apps
-	replace myapp = "data_repos" if application=="clinical data repository"
-	replace myapp = "cds" if regexm(application,"clinical decision support")
-	replace myapp = "cpoe" if regexm(application,"computerized practitioner order entry")
-	replace myapp = "ent_emr" if inlist(application,"enterprise emr","emr")
-	replace myapp = "order_entry" if regexm(application,"order entry \(includes")
-	replace myapp = "doc_doc" if application=="physician documentation"
-	replace myapp = "med_termin" if regexm(application,"medical terminology")
-	replace myapp = "doc_portal" if regexm(application,"physician portal")
-	
-		// Nursing apps
-	replace myapp = "nurs_doc" if regexm(application,"nursing doc")
-	replace myapp = "emar" if regexm(application,"(emar)")
-	
-		// Laboratory apps
-	replace myapp = "lab_is" if regexm(application,"laboratory information")
-	
+    di as err "On year `year'"
+    
+    use $SRCPATH/`year'/HAEntityApplication, clear
+    
+    keep haentityid application category status contractyear
+    
+    * Make strings uniform
+    replace application = lower(application)
+    replace status = lower(status)
+    replace category = lower(category)
+    
+    * Consolated application names, will be variable names
+    global EMRAPPS data_repos cds cpoe ent_emr order_entry doc_doc med_termin doc_portal nurs_doc lab_is
+    
+    gen myapp = "oth"
+        // EMR apps
+    replace myapp = "data_repos" if application=="clinical data repository"
+    replace myapp = "cds" if regexm(application,"clinical decision support")
+    replace myapp = "cpoe" if regexm(application,"computerized practitioner order entry")
+    replace myapp = "ent_emr" if inlist(application,"enterprise emr","emr")
+    replace myapp = "order_entry" if regexm(application,"order entry \(includes")
+    replace myapp = "doc_doc" if application=="physician documentation"
+    replace myapp = "med_termin" if regexm(application,"medical terminology")
+    replace myapp = "doc_portal" if regexm(application,"physician portal")
+    
+        // Nursing apps
+    replace myapp = "nurs_doc" if regexm(application,"nursing doc")
+    replace myapp = "emar" if regexm(application,"(emar)")
+    
+        // Laboratory apps
+    replace myapp = "lab_is" if regexm(application,"laboratory information")
+    
 
 
-	
-	* Numerical status, higher number more "useful"
-	gen app_ = .
-	replace app_ = 1 if regexm(status,"live")
-	replace app_ = 2 if regexm(status,"replaced")
-	replace app_ = 3 if regexm(status,"installation in")
-	replace app_ = 4 if regexm(status,"contracted/not")
-	replace app_ = 5 if regexm(status,"not yet contracted")
-	replace app_ = 6 if regexm(status,"not automated")
-	replace app_ = 7 if regexm(status,"service not provided")
-	replace app_ = 99 if regexm(status,"not reported")
-	
-	label def stati 1 "Live" 2 "To be Replaced" 3 "Installing" 4  "Contracted only" 5 "Not yet contracted" 6 "Not automated"  7 "Service not provided" 99 "Not reported" 9999 "Missing"
-	label val app_ stati
-		
-	* Total obs in data
-	egen apps_in_data = count(haentityid), by(haentityid)
+    
+    * Numerical status, higher number more "useful"
+    gen app_ = .
+    replace app_ = 1 if regexm(status,"live")
+    replace app_ = 2 if regexm(status,"replaced")
+    replace app_ = 3 if regexm(status,"installation in")
+    replace app_ = 4 if regexm(status,"contracted/not")
+    replace app_ = 5 if regexm(status,"not yet contracted")
+    replace app_ = 6 if regexm(status,"not automated")
+    replace app_ = 7 if regexm(status,"service not provided")
+    replace app_ = 99 if regexm(status,"not reported")
+    
+    label def stati 1 "Live" 2 "To be Replaced" 3 "Installing" 4  "Contracted only" 5 "Not yet contracted" 6 "Not automated"  7 "Service not provided" 99 "Not reported" 9999 "Missing"
+    label val app_ stati
+        
+    * Total obs in data
+    egen apps_in_data = count(haentityid), by(haentityid)
 
-	
-	* Verify that nothing weird is happening
-	/*
-	tab status app_, miss
-	tab application myapp, miss
-	assert app_!=. if category=="electronic medical records"
-	summ 
-	*/
-	quiet{
-	* Eliminate duplicates, take "best" status
-	duplicates drop
-	bys haentityid myapp: gen myapp_n = _N
-	
-	bys haentity myapp (app_): keep if _n==1
-	
-	bys haentityid myapp: gen n2 = _N
-	assert n2==1
-	drop myapp_n n2
-	
-	
-	* Reshape wide
-	drop application category status
-	
-	ren contractyear contract_
-	
-	reshape wide app_ contract_ , i(haentityid) j(myapp) string
-	
-	gen in_app = 1
-	
-	summ
-	}
-	append using `crap_data'
-	save `crap_data', replace
-	
-	di as err "This is after year `year' was appended to app data"
-	summ
-	
-	
+    
+    * Verify that nothing weird is happening
+    /*
+    tab status app_, miss
+    tab application myapp, miss
+    assert app_!=. if category=="electronic medical records"
+    summ 
+    */
+    quiet{
+    * Eliminate duplicates, take "best" status
+    duplicates drop
+    bys haentityid myapp: gen myapp_n = _N
+    
+    bys haentity myapp (app_): keep if _n==1
+    
+    bys haentityid myapp: gen n2 = _N
+    assert n2==1
+    drop myapp_n n2
+    
+    
+    * Reshape wide
+    drop application category status
+    
+    ren contractyear contract_
+    
+    reshape wide app_ contract_ , i(haentityid) j(myapp) string
+    
+    gen in_app = 1
+    
+    summ
+    }
+    append using `crap_data'
+    save `crap_data', replace
+    
+    di as err "This is after year `year' was appended to app data"
+    summ
+    
+    
 }
 save ../dta/temp_app_data, replace
 summ
@@ -397,66 +398,66 @@ save `base', emptyok
 
 foreach year of numlist $STARTYEAR/2011 {
 
-	di as err "*** LOOP YEAR: `year' *****"
-	
-	* Use 'HA Entity' as base
-	use $SRCPATH/`year'/HAEntity, clear
+    di as err "*** LOOP YEAR: `year' *****"
+    
+    * Use 'HA Entity' as base
+    use $SRCPATH/`year'/HAEntity, clear
 
-	* Wanted variables
-	global HAEntityKeep $HAEntityKeep ${addToHAEntityKeep`year'}
-	keep $HAEntityKeep
-	destring ftetotal, replace
-	
-		** Mergin in other tables **
-		
-	* AcuteInfo
-	di as err "Merge table AcuteInfo"
-	
-		// Adjust variable list by year
-	global AcuteInfoKeep $AcuteInfoKeep ${addToAcuteInfo`year'}
-	
-	merge 1:1 haentityid using $SRCPATH/`year'/AcuteInfo, keepusing($AcuteInfoKeep)
-	assert _merge!=2
-	rename _merge _m_HAEntity
-	
-	cap ren isbudget isbudget_own
-	
-	
-	* Parent Info
-	/*
-			// Keep variable only in first year
-		if `year'==2008 local datacenter datacenter
-		else local datacenter
-		
-			// Add new variables each year as needed
-		global ParentInfoKeep ${ParentInfoKeep} ${addToParentInfo`year'}
-		
-		* Merge in table'
-		di "Merge table ParentInfo"
-		merge m:1 parentid using $SRCPATH/`year'/ParentInfo, keepusing(${ParentInfoKeep} `datacenter')
-		drop if _merge==2
-		rename _merge _m_ParentInfo
-	
-	if `year' < 2011 {
-		egen dateonly = ends(dateofdata), h p(" ")
-		drop dateofdata
-		gen dateofdata = date(dateonly,"mdy")
-	}
-	*/
-	
-	
-	cap ren isbudget isbudget_parent
-	cap ren isbudget_own isbudget
-	
-	gen year = `year'
-	di as err "Append thru `year' to base"
-	append using `base'
-	save `base', replace
+    * Wanted variables
+    global HAEntityKeep $HAEntityKeep ${addToHAEntityKeep`year'}
+    keep $HAEntityKeep
+    destring ftetotal, replace
+    
+        ** Mergin in other tables **
+        
+    * AcuteInfo
+    di as err "Merge table AcuteInfo"
+    
+        // Adjust variable list by year
+    global AcuteInfoKeep $AcuteInfoKeep ${addToAcuteInfo`year'}
+    
+    merge 1:1 haentityid using $SRCPATH/`year'/AcuteInfo, keepusing($AcuteInfoKeep)
+    assert _merge!=2
+    rename _merge _m_HAEntity
+    
+    cap ren isbudget isbudget_own
+    
+    
+    * Parent Info
+    /*
+            // Keep variable only in first year
+        if `year'==2008 local datacenter datacenter
+        else local datacenter
+        
+            // Add new variables each year as needed
+        global ParentInfoKeep ${ParentInfoKeep} ${addToParentInfo`year'}
+        
+        * Merge in table'
+        di "Merge table ParentInfo"
+        merge m:1 parentid using $SRCPATH/`year'/ParentInfo, keepusing(${ParentInfoKeep} `datacenter')
+        drop if _merge==2
+        rename _merge _m_ParentInfo
+    
+    if `year' < 2011 {
+        egen dateonly = ends(dateofdata), h p(" ")
+        drop dateofdata
+        gen dateofdata = date(dateonly,"mdy")
+    }
+    */
+    
+    
+    cap ren isbudget isbudget_parent
+    cap ren isbudget_own isbudget
+    
+    gen year = `year'
+    di as err "Append thru `year' to base"
+    append using `base'
+    save `base', replace
 }
 
 
 ***************************
-**	Merge on other tables
+**    Merge on other tables
 ***************************
 
 
@@ -467,15 +468,15 @@ ren _merge _m_apps
 
 foreach table in $TABLES {
 
-	di as err "Merge in `table'"
-	merge 1:1 haentityid using ``table''
-	assert _merge!=2
-	ren _merge _m_`table'
-	
+    di as err "Merge in `table'"
+    merge 1:1 haentityid using ``table''
+    assert _merge!=2
+    ren _merge _m_`table'
+    
 }
 
 **********************
-*	Variable Cleaning
+*    Variable Cleaning
 **********************
 * Rename to merge with other data
 ren medicarenumber hosp_id
@@ -529,7 +530,7 @@ bys uniqueid (year): gen rep = _n==1
 
 // Test for changing Medicare ID. "test==." means only 1 non-miss ob
 egen id = group(hosp_id)
-bys uniqueid: egen testid = sd(id)	
+bys uniqueid: egen testid = sd(id)    
 
 bys uniqueid (hosp_id): replace hosp_id = hosp_id[_N] if hosp_id=="" & inlist(testid,0,.)
 bys uniqueid (year): replace hosp_id = hosp_id[_n+1] if hosp_id=="" & hosp_id[_n+1]!="" & year==$STARTYEAR
@@ -583,7 +584,7 @@ destring cpoe_frac, replace i("%")
 **********************
 /*
 foreach var in annualopcost annualrevenue dateofdata isplan isplanyear physft {
-	rename `var' parent_`var'
+    rename `var' parent_`var'
 }
 */
 
@@ -602,7 +603,15 @@ gen y = 1
 
 replace hosp_id = "MISS_" + string(uniqueid) if hosp_id==""
 
-collapse (mean) emr_frac rev* (min) app_*  (max) contract_* pacs_* cdss_* comp_* max_cds=app_cds max_cpoe = app_cpoe max_emr=app_ent_emr in_* (count) n_noftotdischarge = noftotdischarge n_netoperr=netoperr n_totaloperexp = totaloperexp n_ftetotal = ftetotal (rawsum) y apps_in_data ftetotal phystotal netoperr totaloperexp nof* ahaadmissions [pw=wt], by(hosp_id year) // /* (mean) cpoe_frac parent_* */
+collapse (mean) emr_frac rev* ///
+        (min) app_*  ///
+        (max) contract_* pacs_* cdss_* comp_* max_cds=app_cds ///
+            max_cpoe = app_cpoe max_emr=app_ent_emr in_* ///
+        (count) n_noftotdischarge = noftotdischarge n_netoperr=netoperr ///
+            n_totaloperexp = totaloperexp n_ftetotal = ftetotal ///
+        (rawsum) y apps_in_data ftetotal phystotal netoperr totaloperexp ///
+            nof* ahaadmissions ///
+        [pw=wt], by(hosp_id year) // /* (mean) cpoe_frac parent_* */
 */
 tab emr, miss
 
@@ -612,5 +621,5 @@ replace emr = temp*25
 
 tab emr, miss
 
-
 save ../dta/himss-extract, replace
+

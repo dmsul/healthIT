@@ -1,14 +1,14 @@
 /*
-	This file runs the necessary cleaning files and combines data from:
-		HospCompare, quality measures
-		HospCompare, mortality and readmission
-		HIMS
-		AHA
-		
-	Output:
-		"../dta/hIT-combineddata"
-		
-		
+    This file runs the necessary cleaning files and combines data from:
+        HospCompare, quality measures
+        HospCompare, mortality and readmission
+        HIMS
+        AHA
+        
+    Output:
+        "../dta/hIT-combineddata"
+        
+        
 */
 set more off
 
@@ -16,10 +16,10 @@ global EDITION 130812
 
 global HIMSS_PATH /homes/nber/sullivan/himss.work
 global AHA_PATH /homes/nber/sullivan/aha.work
-global MY_PATH /homes/nber/sullivan/Work/healthIT
+global MY_PATH /homes/nber/sullivan/research/healthIT
 
 **********************
-**		I/O
+**        I/O
 **********************
 
 
@@ -38,11 +38,11 @@ ren F MUattestmo
 ren G MUattestyr
 
 foreach var of varlist *yr {
-	replace `var' = `var'+2000
+    replace `var' = `var'+2000
 }
 
 foreach var in launch firstpay MUattest {
-	gen `var' = `var'yr + (`var'mo - 1)/12
+    gen `var' = `var'yr + (`var'mo - 1)/12
 }
 
 tempfile stateprogs
@@ -74,9 +74,8 @@ rename _merge _m_coremsr
 merge 1:1 hosp_id year using $MY_PATH/dta/temp-ehrprog
 drop if _merge==2
 
-
 forval i=2011/2013 {
-	replace ehr_prog`i' = 0 if ehr_prog`i'==.
+    replace ehr_prog`i' = 0 if ehr_prog`i'==.
 }
 egen paid_by_mcr = rowmax(ehr_prog*)
 
@@ -172,35 +171,35 @@ cap log close
 
 
 foreach val in 0 25 50 75 100 {
-	gen emr_`val' = emr_frac==`val'
-	*gen cpoe_`val' = cpoe_frac==`val'
+    gen emr_`val' = emr_frac==`val'
+    *gen cpoe_`val' = cpoe_frac==`val'
 }
 
 * Indexes of Quality
 foreach metric in mort read core {
-	
-	if "`metric'"=="core" {
-		foreach var in ami8a hf1 pn2 scipvte1 {
-			egen mean1_`var'`metric' = mean(`var') //, by(year)
-			egen sd1_`var'`metric' = sd(`var') //, by(year)
-			gen z_`var'`metric' = (`var' - mean1_`var'`metric')/sd1_`var'`metric'
-		}
-	}
-	else {	
-		foreach var in ha hf pn {
-			egen mean1_`var'`metric' = mean(`var'_`metric') //, by(year)
-			egen sd1_`var'`metric' = sd(`var'_`metric') //, by(year)
-			gen z_`var'`metric' = (`var'_`metric' - mean1_`var'`metric')/sd1_`var'`metric'
-		}
-	}
-	egen z_`metric' = rowmean(z_*`metric')
-	egen mean2`metric' = mean(z_`metric') //, by(year)
-	egen sd2`metric' = sd(z_`metric') //, by(year)
-	replace z_`metric' = (z_`metric' - mean2`metric')/sd2`metric'
+    
+    if "`metric'"=="core" {
+        foreach var in ami8a hf1 pn2 scipvte1 {
+            egen mean1_`var'`metric' = mean(`var') //, by(year)
+            egen sd1_`var'`metric' = sd(`var') //, by(year)
+            gen z_`var'`metric' = (`var' - mean1_`var'`metric')/sd1_`var'`metric'
+        }
+    }
+    else {    
+        foreach var in ha hf pn {
+            egen mean1_`var'`metric' = mean(`var'_`metric') //, by(year)
+            egen sd1_`var'`metric' = sd(`var'_`metric') //, by(year)
+            gen z_`var'`metric' = (`var'_`metric' - mean1_`var'`metric')/sd1_`var'`metric'
+        }
+    }
+    egen z_`metric' = rowmean(z_*`metric')
+    egen mean2`metric' = mean(z_`metric') //, by(year)
+    egen sd2`metric' = sd(z_`metric') //, by(year)
+    replace z_`metric' = (z_`metric' - mean2`metric')/sd2`metric'
 
 }
 
-	// Norm quality measures so "good" is positive
+    // Norm quality measures so "good" is positive
 replace z_read = -z_read
 replace z_mort = -z_mort
 
@@ -228,10 +227,10 @@ gen emr_geq75 = emr_frac==100
 
 * EMR ES dummies
 forval yr = 2008/2011{
-	gen emr_any_`yr' = emr_any*(year==`yr')
-	gen emr_geq50_`yr' = emr_geq50*(year==`yr')
-	gen emr_leq50_`yr' = emr_leq50*(year==`yr')
-}	
+    gen emr_any_`yr' = emr_any*(year==`yr')
+    gen emr_geq50_`yr' = emr_geq50*(year==`yr')
+    gen emr_leq50_`yr' = emr_leq50*(year==`yr')
+}    
 
 gen emr_any_post = emr_any*post
 gen emr_geq50_post = emr_geq50*post
@@ -245,12 +244,12 @@ gen cost_per_bed = totaloper/beds_h
 
 cap drop temp
 ***************************
-*	EMR incentive program variables
+*    EMR incentive program variables
 ***************************
 /*
-	Data dependencies.
-		AHA: serv (in HIMSS?); mcripdh, mcdipdh, ipdh
-		HIMSS: revmedicaid (old measure);
+    Data dependencies.
+        AHA: serv (in HIMSS?); mcripdh, mcdipdh, ipdh
+        HIMSS: revmedicaid (old measure);
 
 */
 
@@ -260,7 +259,7 @@ gen qualified_no = inrange(cms,1,879) | inrange(cms,1300,1399)
 gen childrens = inrange(cms,3300,3399)
 
 
-		* Medicare
+        * Medicare
 gen temp = serv==10 if serv!=.
 egen qual_mcr = max(temp)
 drop temp
@@ -280,7 +279,7 @@ gen bene_mcr = temp3*2.5
 drop temp temp2 temp3
 
 
-		*Medicaid
+        *Medicaid
 * Our previous volume dummy
 gen old_sh10 = revmedicaid >=10 if revmedicaid<.
 
@@ -314,8 +313,8 @@ drop temp
 
 local discount = 1
 forval y=2010/2013 {
-	gen pay`y' = (2e6 + max(0,min(pred`y'-1149,23000-1149))*200)*`discount'
-	local discount = `discount' - 0.25
+    gen pay`y' = (2e6 + max(0,min(pred`y'-1149,23000-1149))*200)*`discount'
+    local discount = `discount' - 0.25
 }
 
 egen temp = rowtotal(pay2010-pay2013)
@@ -344,13 +343,13 @@ summ bene*
 xtsum bene*
 
 foreach var in noftotdischarge netoperr totalopere ftetotal {
-	replace `var' = . if n_`var'==0
+    replace `var' = . if n_`var'==0
 }
 
 label def stati 1 "Live" 2 "To be Replaced" 3 "Installing" 4  "Contracted only" 5 "Not yet contracted" 6 "Not automated"  7 "Service not provided" 99 "Not reported" 9999 "Missing"
 foreach var of varlist app_* {
-	label val `var' stati
+    label val `var' stati
 }
 
 
-save ../dta/hIT-combineddata, replace
+save ../dta/hIT-combineddata-new, replace
