@@ -32,3 +32,14 @@ global combined_dta $DATA_PATH/hIT-combineddata
 
 * Reg ready
 global regready_dta $DATA_PATH/hIT-regready
+
+* CMS
+*-----
+
+global CMS_SRC "/disk/aging/medicare/data/100pct"
+
+global xwalk_clm_beneid $DATA_PATH/xwalk_clm_beneid
+global readmit_flag $DATA_PATH/readmit30_flag
+
+global basic_cms_panel $DATA_PATH/basic_cms_panel
+
