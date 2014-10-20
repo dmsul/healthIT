@@ -2,26 +2,28 @@ log using describe_bsf.log , replace
 ** by Jean Roth , 2013-11-12 , jroth@nber.org 
 ** You may want to compare the size of the file to the amount of memory available on the servers
 ** particularly for large files like Carrier and Outpatient 
-set more off
-program loop
-local TYPE `1'
-local SUBTYPE `2'
-local FIRST_YEAR `3'
-local LAST_YEAR `4'
-local PCT `5'
-local PARTS `6'
-local PARTNAME `7'
-foreach YEAR of num `FIRST_YEAR'/`LAST_YEAR' {
-    local indir /disk/aging/medicare/data/`PCT'pct/`TYPE'/`YEAR'/1
-    di "`SUBTYPE'`YEAR'  `PCT' PCT"
-    local FILE `SUBTYPE'`YEAR'
-    if ( length("`PARTS'") > 0 ) {
-        local FILE `PARTNAME'
-    }
-    desc using `indir'/`FILE'
-}
 
+set more off
+
+program loop
+    local TYPE `1'
+    local SUBTYPE `2'
+    local FIRST_YEAR `3'
+    local LAST_YEAR `4'
+    local PCT `5'
+    local PARTS `6'
+    local PARTNAME `7'
+    foreach YEAR of num `FIRST_YEAR'/`LAST_YEAR' {
+        local indir /disk/aging/medicare/data/`PCT'pct/`TYPE'/`YEAR'/1
+        di "`SUBTYPE'`YEAR'  `PCT' PCT"
+        local FILE `SUBTYPE'`YEAR'
+        if ( length("`PARTS'") > 0 ) {
+            local FILE `PARTNAME'
+        }
+        desc using `indir'/`FILE'
+    }
 end
+
 ****************************
 ** 100 PCT
 ****************************
