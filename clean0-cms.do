@@ -176,7 +176,7 @@ prog def main
     gen age_at_adm = int(admsn_dt - bene_dob)/365.25
     drop if days_to_death < 0
     drop if age_at_adm < 0
-    drop dschrgdt death_dt admsn_dt days_to_death
+    drop dschrgdt death_dt days_to_death
     // Sex
     drop if sex == ""
     gen byte female = sex == "2"
@@ -189,6 +189,8 @@ prog def main
 
     * Save!
     keep if inrange(year, $year0, $yearT)
+    // Drop last 3 months to avoid truncation problems
+    drop if admsn_dt > mdy(10, 1, $yearT)
     compress
     save $OUT_PANEL, replace
 end
