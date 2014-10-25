@@ -1,3 +1,4 @@
+cap log close
 /*
     Regressions using data from HospCompare and AHA.
 
@@ -124,8 +125,8 @@ prog def gen_takeup_flags
     save $DATA_PATH/tmp_takeupflag, replace
 end
 
-prog def main_plot
-    args diagnosis ami_flag
+prog def _plot_raw_means
+    args diagnosis
 
     use $basic_cms_panel, clear
 
@@ -164,12 +165,68 @@ prog def main_plot
     */
 end
 
-// set trace on
-foreach emr_type in 1 2 3 0 {
-    foreach diag in heart_failure ami hipfrac pneumonia {
-        gen_takeup_flags `emr_type'
-        main_plot `diag'
+prog def main_plot_raw_means
+    foreach emr_type in 1 2 3 0 {
+        foreach diag in heart_failure ami hipfrac pneumonia {
+            gen_takeup_flags `emr_type'
+            _plot_raw_means `diag'
+        }
     }
-}
+end
 
+prog def _ES_by_takeup
+    use $basic_cms_panel, clear
+
+    keep if year >= 2008
+    // Drop anyone who doesn't have all outcomes in data
+    keep if !inlist(., los, mort30, readmit_30)
+    // Merge in hosp's takeup info
+    merge m:1 provider using $DATA_PATH/tmp_takeupflag
+    keep if _merge==3
+    drop _merge
+
+    * Gen Takeup-ES vars
+    foreach status in 0 1 {
+        if `status' == -1 local status_name never
+        else if `status' == 0 local status_name adopter
+        else if `status' == 1 local status_name always
+        forval y = 2009/2012 {
+            gen byte `status_name'_`y' = (year==`y') * (takeup == `status')
+        }
+    }
+
+    * Gen age bins
+    foreach agecut in 5 10 20 30 40 50 60 70 80 999 {
+        local i `agecut'
+        if `agecut' == 5 local i_1 -1
+        gen byte agebin_`agecut' = `i_1' < age_at_adm & age_at_adm <= `i'
+        local i_1 `i'
+    }
+    drop agebin_5
+
+    * Regs
+    local patXs agebin_* female race_*
+    local replace replace
+    foreach diagnosis in heart_failure ami hipfrac pneumonia {
+        foreach lhv in los mort30 readmit_30 {
+            areg `lhv' adopter_* always_* `patXs' i.year if `diagnosis' == 1, ///
+                 a(provider) cluster(provider)
+            outreg2 using ../out/1410/cms_${control_var}.txt, `replace' ///
+                addtext(Diag, "`diagnosis'", FE, "provider", Cluster, "provider")
+            local replace
+        }
+    }
+end
+
+prog def main_ES_by_takeup
+    foreach emr_type in 1 2 3 {
+        gen_takeup_flags `emr_type'
+        _ES_by_takeup
+    }
+end
+
+* Plot raw mean of outcome by EHR takeup type
+//main_plot_raw_means
+* 
+main_ES_by_takeup
 

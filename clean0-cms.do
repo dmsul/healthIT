@@ -1,5 +1,5 @@
 qui {
-set trace on
+//set trace on
 set more off
 clear all
 
