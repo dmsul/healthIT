@@ -1,3 +1,4 @@
+syntax anything
 cap log close
 /*
     Regressions using data from HospCompare and AHA.
@@ -6,6 +7,7 @@ cap log close
     
     
 */
+quiet {
 set more off
 clear all
 
@@ -209,10 +211,49 @@ prog def _ES_by_takeup
     local replace replace
     foreach diagnosis in heart_failure ami hipfrac pneumonia {
         foreach lhv in los mort30 readmit_30 {
+            qui summ `lhv' if `diagnosis' == 1 & year==2008 & takeup == -1
+            local never_mean = r(mean)
+            qui summ `lhv' if `diagnosis' == 1 & year==2008 & takeup == 0
+            local adopt_mean = r(mean)
+            qui summ `lhv' if `diagnosis' == 1 & year==2008 & takeup == 1
+            local always_mean = r(mean)
             areg `lhv' adopter_* always_* `patXs' i.year if `diagnosis' == 1, ///
                  a(provider) cluster(provider)
             outreg2 using ../out/1410/cms_${control_var}.txt, `replace' ///
-                addtext(Diag, "`diagnosis'", FE, "provider", Cluster, "provider")
+                addtext(Diag, "`diagnosis'", FE, "provider", Cluster, "provider", ///
+                        Never Mean, `never_mean', Adopt Mean, `adopt_mean', Always Mean, `always_mean')
+            local replace
+        }
+    }
+end
+
+prog def main_ES_simple
+    use $basic_cms_panel, clear
+
+    keep if year >= 2008
+    // Drop anyone who doesn't have all outcomes in data
+    keep if !inlist(., los, mort30, readmit_30)
+
+    * Gen age bins
+    foreach agecut in 5 10 20 30 40 50 60 70 80 999 {
+        local i `agecut'
+        if `agecut' == 5 local i_1 -1
+        gen byte agebin_`agecut' = `i_1' < age_at_adm & age_at_adm <= `i'
+        local i_1 `i'
+    }
+    drop agebin_5
+
+    * Regs
+    local patXs agebin_* female race_*
+    local replace replace
+    foreach diagnosis in heart_failure ami hipfrac pneumonia {
+        foreach lhv in los mort30 readmit_30 {
+            qui summ `lhv' if `diagnosis' == 1 & year==2008
+            local pop_mean = r(mean)
+            areg `lhv' i.year `patXs' if `diagnosis' == 1, ///
+                 a(provider) cluster(provider)
+            outreg2 using ../out/1410/cms_simple.txt, `replace' ///
+                addtext(Diag, "`diagnosis'", FE, "provider", Cluster, "provider", 2008 Mean, `pop_mean')
             local replace
         }
     }
@@ -224,9 +265,16 @@ prog def main_ES_by_takeup
         _ES_by_takeup
     }
 end
+} // End quiet
 
 * Plot raw mean of outcome by EHR takeup type
-//main_plot_raw_means
-* 
-main_ES_by_takeup
+if regexm("`anything'", "plot") {
+    main_plot_raw_means
+}
+if regexm("`anything'", "takeup") {
+    main_ES_by_takeup
+}
+if regexm("`anything'", "simple") {
+    main_ES_simple
+}
 
