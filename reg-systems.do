@@ -31,11 +31,11 @@ global PLOT_STEM ../gph/plot-1403
 * routines
 *----------
 
-prog def gen_takeup_flags
+prog def prep_hosp_data
     /* Get hospitals' EMR usage patterns.
        (This used to be its own file, regs-*-prep.do) */
 
-    args control
+    args control takeuponly
 
     use $regready_dta, clear
 
@@ -119,12 +119,14 @@ prog def gen_takeup_flags
     label var our_basic_notes "BasicN"
     label var our_comprehensive "Comprehensive"
 
-    * Prune variables, save
-    keep hosp_id takeup size
-    ren hosp_id provider
-    duplicates drop
+    * Maybe prune variables, save
+    if `takeuponly' == 1 {
+        keep hosp_id takeup size
+        ren hosp_id provider
+        duplicates drop
 
-    save $DATA_PATH/tmp_takeupflag, replace
+        save $DATA_PATH/tmp_takeupflag, replace
+    }
 end
 
 prog def _load_patient_data
@@ -231,7 +233,7 @@ end
 prog def main_plot_raw_means
     foreach emr_type in 1 2 3 0 {
         foreach diag in heart_failure ami hipfrac pneumonia {
-            gen_takeup_flags `emr_type'
+            prep_hosp_data `emr_type' 1
             _plot_raw_means `diag'
         }
     }
@@ -265,9 +267,14 @@ prog def main_ES_by_takeup
      * indexed by "emr_type" */
 
     foreach emr_type in 1 2 3 {
-        gen_takeup_flags `emr_type'
+        prep_hosp_data `emr_type' 1
         _ES_by_takeup
     }
+end
+
+prog def main_system_summ
+   prep_hosp_data 2 0 
+
 end
 
 } // End quiet
@@ -282,5 +289,18 @@ if regexm("`anything'", "takeupES") {
     main_ES_by_takeup
 }
 if regexm("`anything'", "system") {
+    if regexm("`anything'", "summ") {
+        main_system_summ
+
+        // Don't lump non-system guys as one system
+        replace sysid = hosp_id if sysid == ""
+        assert sysid != ""
+        // Flag guys who change systems and when
+        bys hosp_id (year): gen new_system = sysid != sysid[_n -1]
+        replace new_system = 0 if year == 2008
+        summ new_system
+        bys hosp_id: egen changes_systems = max(new_system)
+
+    }
 }
 
