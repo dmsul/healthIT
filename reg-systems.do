@@ -39,6 +39,8 @@ prog def gen_takeup_flags
 
     use $regready_dta, clear
 
+    keep if existsincoreyears == 1
+
     * somthing
     foreach year in 2008 {
         bys id: egen min1 = min(live_cpoe) if year>=`year'
