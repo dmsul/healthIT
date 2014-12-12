@@ -41,7 +41,7 @@ prog def gen_takeup_flags
 
     keep if existsincoreyears == 1
 
-    * somthing
+    * Variables for IT adoption status
     foreach year in 2008 {
         bys id: egen min1 = min(live_cpoe) if year>=`year'
         bys id: egen max1 = max(live_cpoe) if year>=`year'
@@ -127,7 +127,7 @@ prog def gen_takeup_flags
     save $DATA_PATH/tmp_takeupflag, replace
 end
 
-prog def _load_cms_data
+prog def _load_patient_data
     args Xbins diagnosis
 
     use $basic_cms_panel, clear
@@ -159,7 +159,7 @@ end
 prog def _plot_raw_means
     args diagnosis
 
-    _load_cms_data 0 `diagnosis'
+    _load_patient_data 0 `diagnosis'
 
     // Merge in hosp's takeup info
     merge m:1 provider using $DATA_PATH/tmp_takeupflag, keep(3) nogen
@@ -193,7 +193,7 @@ end
 
 prog def _ES_by_takeup
 
-    _load_cms_data 1
+    _load_patient_data 1
 
     merge m:1 provider using $DATA_PATH/tmp_takeupflag, keep(3) nogen
 
@@ -241,7 +241,7 @@ prog def main_ES_simple
     /* ES regs by diagnosis assuming constant effects over time for all
      * hospitals */
 
-    _load_cms_data 1
+    _load_patient_data 1
 
     * Regs
     local patXs agebin* race_*
