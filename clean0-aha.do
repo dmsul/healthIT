@@ -25,13 +25,21 @@ tempfile foundation
 save `foundation', emptyok
 
 
-global CORE_VARS id dtbeg dtend radmchi admtot ipdtot admh ipdh mcrdc mcripd mcddc mcdipd mcrdch mcripdh mcddch mcdipdh bdlt admlt ipdlt madmin mlocaddr mcrnum fcounty dbegm dbegy dendm dendy dcov cntrl serv mname mloczip mstate subs sunits hospbd paytot plnta adepra assnet gfeet ceamt fte* 
+global CORE_VARS    id dtbeg dtend ///
+                    radmchi /// restrict admits to children
+                    admtot ipdtot admh ipdh mcrdc mcripd mcddc mcdipd mcrdch ///
+                    mcripdh mcddch mcdipdh bdlt admlt ipdlt ///
+                    madmin mlocaddr mcrnum fcounty ///
+                    dbegm dbegy dendm dendy dcov ///
+                    cntrl serv mname mloczip mstate subs sunits ///
+                    hospbd paytot plnta adepra assnet gfeet ceamt fte* ///
+                    sysid subs mngt netwrk netname
 
 * keep mcrnum fcounty dbegm dbegy dendm dendy dcov cntrl serv mname mloczip mstate subs sunits hospbd paytot admtot ipdtot tehsp teint tetot  mmbtr ehlth plnta adepra assnet gfeet ceamt mmbtu fte*
 
 foreach y of numlist $YEARLIST {
    di as err "******* YEAR PROCESSING: `y' ******"
-   use "$AHA_SRC/data20130712/aha_extract`y'"
+   use "$AHA_SRC/data20130712/aha_extract`y'", clear
    
    cap summ ehlth
    
@@ -78,12 +86,12 @@ foreach y of numlist $YEARLIST {
       npi npinum
       
    }
-   
-   
+
+
    ***** (De)String stuff so data types match
    
    if `y'==2008 {
-      destring ehlth* emeds elabs, replace
+      destring ehlth* emeds elabs mngt netwrk, replace
    }
    
    if inlist(`y',2009) {
@@ -92,7 +100,7 @@ foreach y of numlist $YEARLIST {
       destring temp, gen(mloczip)
       drop temp
       
-      destring ehlth* , replace
+      destring ehlth* mngt netwrk , replace
       
    }
    
@@ -104,7 +112,7 @@ foreach y of numlist $YEARLIST {
       
       * Fix stupid ehlth entries for now
       replace ehlth = "3" if ehlth=="N"
-      destring ehlth , replace
+      destring ehlth mngt netwrk , replace
       label define ehlthcrap 3 "This was 'N' in raw data"
       label values ehlth ehlthcrap      
    }
@@ -259,17 +267,40 @@ drop if beds_h < 0 // Apparently the previous line leaves some negative [10/17/1
 summ admh ipdh mcrdc* mcripd* mcddc* mcdipd* beds_h
 summ ehlth radmchi admh ipdh beds_h mcrdch mcripdh mcddch mcdipdh assnet
 
-gen x=1
 
 gen hasserv10 = serv==10
 
+drop if hosp_id == ""
+
+* XXX Drop weird guys that share a hosp_id but not a sysid
+// Use modal for these guys (per eyeball, 12/12/14)
+replace sysid = "0002" if hosp_id == "250162"
+replace sysid = "0026" if hosp_id == "452023"
+// These guys too weird, just drop
+drop if inlist(hosp_id, "313032", "451380")
+
+// Use this to check out hosp_id/sysid inconsistencies
+egen hosp_rep = tag(hosp_id year)
+egen tag = tag(hosp_id sysid year)
+bys hosp_id year: egen unique_sys = total(tag)
+bys hosp_id: egen max_unique = max(unique_sys)
+tab unique_sys if hosp_rep == 1
+order hosp_id year sysid 
+sort hosp_id year sysid 
+// browse if max_unique > 1
+assert unique_sys <= 1
+drop hosp_rep tag unique_sys max_unique
+
+
 /* The 'max' collapse used to include 'npi', but 'npi' is a string. Was it
    supposed to grab the actual numerical NPI? Why? [10/17/14] */
-// FIXME XXX collapse doesn't play well with weights!
+// XXX collapse doesn't play well with weights!
+gen x = 1
 collapse (mean) serv ///
          (sd) sdserv = serv ///
          (max) hasserv10 ehlth radmchi /// 
          (rawsum) x paytot admh ipdh beds_h mcrdch mcripdh mcddch mcdipdh ///
+         (lastnm) sysid /// Already verfied as unique w/in hosp_id, year
          [aw=beds_h], by(hosp_id year)
 
 compress
