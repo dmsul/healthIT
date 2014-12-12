@@ -31,6 +31,43 @@ global PLOT_STEM ../gph/plot-1403
 * routines
 *----------
 
+prog def _prep_healthsystem_vars
+        /* To be used on 'regready_dta' data */
+
+        * Impute system if sysid = "" probably wrong
+        // Get modal sys and 'how' modal it is
+        bys hosp_id: egen modal_sys = mode(sysid), miss
+        gen is_modal = sysid == modal_sys
+        bys hosp_id: egen count_modal_sys = total(is_modal)
+        // Make sure onlyl 4 years before using impute rule
+        qui summ year
+        assert r(max) == 2011 & r(min) == 2008
+        // Impute
+        replace sysid = modal_sys if sysid == "" & count_modal_sys == 3 & modal_sys != ""
+        // cleanup
+        drop modal_sys count_modal_sys is_modal
+
+        * Flag system changes
+        bys hosp_id (year): gen system_change = sysid != sysid[_n -1]
+        replace system_change = 0 if year == 2008
+        bys hosp_id: egen has_system_change = max(system_change)
+
+        * System size
+        // Don't lump missings as one system
+        replace sysid = hosp_id if sysid == ""
+        assert sysid != ""
+        // W/in year
+        egen systag = tag(sysid year)
+        bys sysid year: gen syssizeyear = _N
+        egen tmp = cut(syssize), at(0, 1, 2, 5, 10, 20, 50, 100, 200)
+        bys sysid: egen syssizemax = max(syssizeyear)
+        bys sysid: egen syssizemin = min(syssizeyear)
+
+        egen rep_sysyear = tag(sysid year)
+        egen rep_sys = tag(sysid)
+
+end
+
 prog def prep_hosp_data
     /* Get hospitals' EMR usage patterns.
        (This used to be its own file, regs-*-prep.do) */
@@ -38,6 +75,7 @@ prog def prep_hosp_data
     args control takeuponly
 
     use $regready_dta, clear
+    order hosp_id sysid year
 
     keep if existsincoreyears == 1
 
@@ -62,8 +100,6 @@ prog def prep_hosp_data
         drop min* max*
     }
 
-    order id year cpoe_min* basicn_min* compreh_min*
-
      * Drop hosp w/ large beds changes
     bys id: egen medbeds = median(beds_h)
     bys id: egen maxbeds = max(beds_h)
@@ -84,8 +120,8 @@ prog def prep_hosp_data
 
      * SET CONTROL GROUP
     if `control'==1 {
-        gen always = cpoe_min2008==1
-        gen never = cpoe_max2008==0
+        gen byte always = cpoe_min2008==1
+        gen byte never = cpoe_max2008==0
         global control_var "cpoe"
         drop if year<2008
     }
@@ -108,7 +144,7 @@ prog def prep_hosp_data
         drop if year<2008
     }
 
-    gen adopter = always==0 & never==0
+    gen byte adopter = always==0 & never==0
 
     cap drop takeup
     gen takeup = -1*never + always
@@ -119,14 +155,18 @@ prog def prep_hosp_data
     label var our_basic_notes "BasicN"
     label var our_comprehensive "Comprehensive"
 
+    _prep_healthsystem_vars
+    
     * Maybe prune variables, save
     if `takeuponly' == 1 {
-        keep hosp_id takeup size
+        keep hosp_id sysid year takeup size system_change has_system_change
+
+        // To merge with patient data
         ren hosp_id provider
-        duplicates drop
 
         save $DATA_PATH/tmp_takeupflag, replace
     }
+
 end
 
 prog def _load_patient_data
@@ -158,7 +198,7 @@ prog def _load_patient_data
 
 end
 
-prog def _plot_raw_means
+prog def _plot_means_by_takeup
     args diagnosis
 
     _load_patient_data 0 `diagnosis'
@@ -230,11 +270,11 @@ prog def _ES_by_takeup
     }
 end
 
-prog def main_plot_raw_means
+prog def main_plot_means_by_takeup
     foreach emr_type in 1 2 3 0 {
         foreach diag in heart_failure ami hipfrac pneumonia {
             prep_hosp_data `emr_type' 1
-            _plot_raw_means `diag'
+            _plot_means_by_takeup `diag'
         }
     }
 end
@@ -273,14 +313,32 @@ prog def main_ES_by_takeup
 end
 
 prog def main_system_summ
-   prep_hosp_data 2 0 
+    prep_hosp_data 2 0 
+
+    egen rep_hosp = tag(hosp_id)
+
+    * System changers
+    summ has_system_change if rep_hosp == 1
+    tab year system_change
+    * System size
+    //hist syssizemax if rep_sys == 1
+    //hist syssizemax if rep_sys == 1 & syssizemin >=5, name(min)
+    * Adoption
+    foreach var in never always adopter {
+        bys sysid: egen sys_`var' = mean(`var')
+        binscatter `var' syssizemax if rep_sys == 1 , discrete name(`var') line(none)
+        binscatter `var' syssizemax if rep_hops == 1, discrete name(`var'_hosp)
+    }
+
+
+
 
 end
 
 } // End quiet
 
 if regexm("`anything'", "plot") {
-    main_plot_raw_means
+    main_plot_means_by_takeup
 }
 if regexm("`anything'", "simpleES") {
     main_ES_simple
@@ -291,16 +349,6 @@ if regexm("`anything'", "takeupES") {
 if regexm("`anything'", "system") {
     if regexm("`anything'", "summ") {
         main_system_summ
-
-        // Don't lump non-system guys as one system
-        replace sysid = hosp_id if sysid == ""
-        assert sysid != ""
-        // Flag guys who change systems and when
-        bys hosp_id (year): gen new_system = sysid != sysid[_n -1]
-        replace new_system = 0 if year == 2008
-        summ new_system
-        bys hosp_id: egen changes_systems = max(new_system)
-
     }
 }
 
