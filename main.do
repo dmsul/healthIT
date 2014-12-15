@@ -320,25 +320,35 @@ prog def main_system_summ
 
     egen rep_hosp = tag(hosp_id)
 
-    * System size
-    hist syssizemax if rep_sys == 1, ///
-         ti("System size (# hosps)")
-    graph export $out/system_size1.png, width(1500) replace
+    keep if syssizemin >=5
 
-    hist syssizemax if rep_sys == 1 & syssizemin >=5, ///
-         ti("System size (# hosps {&ge}5)") 
-    graph export $out/system_size2.png, width(1500) replace
+    * System size
+    hist syssizemax if rep_sys == 1, ti("System size (# hosps {&ge}5)") 
+    graph export $out/sys_histsize.png, width(1500) replace
 
     * System changers
     summ has_system_change if rep_hosp == 1
     tab year system_change
+
     * Adoption by system size
     foreach var in never always adopter {
-        bys sysid: egen sys_`var' = mean(`var')
-        binscatter `var' syssizemax if rep_sys == 1 , discrete name(`var') line(none)
-        binscatter `var' syssizemax if rep_hops == 1, discrete name(`var'_hosp)
+        bys sysid: egen mean_`var' = mean(`var')
+        twoway (scatter mean_`var' syssizemin) if rep_sys == 1  , name(`var')
+        graph export $out/sys_size_`var'.png, width(1500) replace
     }
-
+    * Misc hosp X's dispersion w/in system
+    foreach var in frac_mdemp_2010 {
+        bys sysid: egen mean_`var' = mean(`var')
+        bys sysid: egen hi_`var' = pctile(`var'), p(80)
+        bys sysid: egen lo_`var' = pctile(`var'), p(20)
+        twoway (line lo_`var' lo_`var') (scatter hi_`var' lo_`var') if rep_sys ==1, ///
+               yti("Sys's high value (80)") xti("Sys's low value (20)") ///
+               ti("W/in system spread of `var'")
+        graph export $out/sys_disp_scatter_`var'.png, replace
+        gen d_`var' = hi_`var' - lo_`var'
+        hist d_`var' if rep_sys == 1, xti("Hi/low difference") ti("System `var'")
+        graph export $out/sys_disp_hist_`var'.png, replace
+    }
 end
 
 prog def main_patient_sysfx
@@ -396,7 +406,7 @@ prog def main_patient_sysfx
             di "F-stat is " `F'
             di "p is " `pF'
 
-            outreg2 using $out/sysfx.txt, `replace' ///
+            outreg2 using $out/sysfx.txt, ///
                 addtext(Diag, "`diagnosis'", FE, "provider", ///
                         Cluster, "provider", 2008 Mean, `pop_mean', ///
                         FX_F, `F', FX_p, `pF')
@@ -414,33 +424,116 @@ prog def main_patient_sysfx
             summ hosp_fx_win, d
             twoway (kdensity hosp_fx) (kdensity hosp_fx_win), ///
                    legend(lab(1 "Hosp FE") lab(2 "Hosp FE (demeaned)"))
-            graph export $out/hospfx_kdens_`diagnosis'_`lhv'.png, replace
+            graph export $out/sysfx_kdens_`diagnosis'_`lhv'.png, replace
             // StdDev w/in system
             qui summ hosp_fx
             local pop_sd = r(sd)
             bys sysid: egen syssd = sd(hosp_fx)
             hist syssd if rep_sys == 1, ///
                 xti("W/in system std dev") xline(`pop_sd')
-            graph export $out/hospfx_hist_`diagnosis'_`lhv'.png, replace
+            graph export $out/sysfx_hist_`diagnosis'_`lhv'.png, replace
             // System rank range
             xtile fx_rank = hosp_fx, n(100)
             bys sysid: egen rank_80 = pctile(fx_rank), p(80)
             bys sysid: egen rank_20 = pctile(fx_rank), p(20)
             twoway (line rank_20 rank_20) (scatter rank_80 rank_20) ///
-                if rep_sys == 1, yti("Highest rank (80)") xti("Lowest rank (20)")
-            graph export $out/hospfx_scatter_`diagnosis'_`lhv'.png, replace
+                if rep_sys == 1, yti("Highest rank (80)") xti("Lowest rank (20)") ///
+                legend(off)
+            graph export $out/sysfx_scatter_`diagnosis'_`lhv'.png, replace
             restore
+
+            drop tag_*
         }
     }
 end
 
-prog def main_patient_oth
+prog def main_sysfx_1st
+
+    * Get hosp-sys xwalk w/ size
+    prep_hosp_data 2 0
+    ren hosp_id provider
+
+    keep if syssizemin >=5
+
+    local replace replace
+    foreach lhv in live_cpoe our_basic_notes our_comprehensive {
+        // Get baseline mean of LHV
+        qui summ `lhv' if year==2008
+        local pop_mean = r(mean)
+
+        * System reg
+        areg `lhv' i.year, a(sysid) cluster(provider)
+        outreg2 using $out/sysfx_1st.txt, `replace' ///
+            addtext(FE, "system", ///
+                    Cluster, "provider", 2008 Mean, `pop_mean')
+        // Get SSR_r
+        local ssr_r = e(rss)
+
+        * Hosp reg
+        areg `lhv' i.year , a(provider) cluster(provider)
+
+        // Do LM test
+        local ssr_u = e(rss)
+        foreach fxvar in sysid provider {
+            egen tag_`fxvar' = tag(`fxvar') if e(sample)
+            qui summ tag_`fxvar'
+            local num_`fxvar' = r(sum)
+        }
+        local q = `num_provider' - `num_sysid'
+        local dfr = e(N) - e(df_m) - e(df_a) -1
+        local F = ((`ssr_r' - `ssr_u') / `q') / (`ssr_u' / `dfr')
+        local pF = 1 - F(`q', `dfr', `F')
+        di "F-stat is " `F'
+        di "p is " `pF'
+
+        outreg2 using $out/sysfx_1st.txt, ///
+            addtext(FE, "provider", ///
+                    Cluster, "provider", 2008 Mean, `pop_mean', ///
+                    FX_F, `F', FX_p, `pF')
+        local replace
+
+        * Summ w/in system patterns
+        preserve
+        predict hosp_fx, d
+        keep if tag_provider == 1
+        cap drop rep_sys
+        egen rep_sys = tag(sysid)
+        // Density of hosp_fx
+        bys sysid: egen syss_m = mean(hosp_fx)
+        bys sysid: gen N = _N
+        gen hosp_fx_win = hosp_fx - syss_m
+        summ hosp_fx_win, d
+        twoway (kdensity hosp_fx) (kdensity hosp_fx_win), ///
+               legend(lab(1 "Hosp FE") lab(2 "Hosp FE (demeaned)"))
+        graph export $out/sysfx1st_kdens_`lhv'.png, replace
+        // StdDev w/in system
+        qui summ hosp_fx
+        local pop_sd = r(sd)
+        bys sysid: egen syssd = sd(hosp_fx)
+        hist syssd if rep_sys == 1, ///
+            xti("W/in system std dev") xline(`pop_sd')
+        graph export $out/sysfx1st_hist_`lhv'.png, replace
+        // System rank range
+        xtile fx_rank = hosp_fx, n(100)
+        bys sysid: egen rank_80 = pctile(fx_rank), p(80)
+        bys sysid: egen rank_20 = pctile(fx_rank), p(20)
+        twoway (line rank_20 rank_20) (scatter rank_80 rank_20) ///
+            if rep_sys == 1, yti("Highest rank (80)") xti("Lowest rank (20)") ///
+            legend(off)
+        graph export $out/sysfx1st_scatter_`lhv'.png, replace
+        restore
+
+        drop tag_*
+    }
+end
+
+prog def main_patient_misc
     * Get hosp-sys xwalk w/ size
     prep_hosp_data 2 0
     keep if year == 2010
     ren hosp_id provider
     ren syssizemin syssize
-    keep provider sysid syssize
+    keep provider sysid syssize frac_mdemp_2010
     tempfile hospsys
     compress
     save `hospsys'
@@ -451,23 +544,75 @@ prog def main_patient_oth
     merge m:1 provider using `hospsys', keep(3) nogen
 
     assert sysid != ""
-    gen byte in_sys = sys_id != provider
+    gen byte in_sys = sysid != provider
+    forval yr=2009/2012 {
+        gen byte in_sys_y`yr' = in_sys * (year == `yr')
+        gen frac_mdemp_y`yr' = frac_mdemp_2010 * (year == `yr')
+    }
 
     local patXs agebin* race_*
     local replace replace
     foreach diagnosis in heart_failure ami hipfrac pneumonia {
         foreach lhv in los mort30 readmit_30 {
             // Get baseline mean of LHV
+            di "Diag: `diagnosis'"
             qui summ `lhv' if `diagnosis' == 1 & year==2008
             local pop_mean = r(mean)
 
             * System reg
-            areg `lhv' i.year `patXs' if `diagnosis' == 1, ///
-                 a(sysid) cluster(provider)
-            outreg2 using $out/sysfx.txt, `replace' ///
-                addtext(Diag, "`diagnosis'", FE, "system", ///
-                        Cluster, "provider", 2008 Mean, `pop_mean')
+            areg `lhv' in_sys_y* i.year `patXs' if `diagnosis' == 1, ///
+                 a(provider) cluster(provider)
+            outreg2 using $out/misc_2nd.txt, `replace' ///
+                addtext(Diag, "`diagnosis'", FE, "provider", Cluster, "provider", 2008 Mean, `pop_mean')
+            local replace
+
+            areg `lhv' frac_mdemp_y* i.year `patXs' if `diagnosis' == 1, ///
+                 a(provider) cluster(provider)
+            outreg2 using $out/misc_2nd.txt, 
+                addtext(Diag, "`diagnosis'", FE, "provider", Cluster, "provider", 2008 Mean, `pop_mean')
+
+            areg `lhv' frac_mdemp_y* in_sys_y* i.year `patXs' if `diagnosis' == 1, ///
+                 a(provider) cluster(provider)
+            outreg2 using $out/misc_2nd.txt,  ///
+                addtext(Diag, "`diagnosis'", FE, "provider", Cluster, "provider", 2008 Mean, `pop_mean')
+        }
+    }
 end
+
+prog def main_misc_1st
+
+    prep_hosp_data 2 0
+    ren hosp_id provider
+
+    assert sysid != ""
+    gen byte in_sys = sysid != provider
+    forval yr=2009/2011 {
+        gen byte in_sys_y`yr' = in_sys * (year == `yr')
+        gen frac_mdemp_y`yr' = frac_mdemp_2010 * (year == `yr')
+        gen syssize_y`yr' = syssizemin * (year == `yr')
+    }
+    local replace replace
+
+    foreach lhv in live_cpoe our_basic_notes our_comprehensive {
+        // Get baseline mean of LHV
+        qui summ `lhv' if year==2008
+        local pop_mean = r(mean)
+
+        areg `lhv' in_sys_y* i.year , a(provider) cluster(provider)
+        outreg2 using $out/misc_1st.txt, `replace' ///
+            addtext(FE, "provider", Cluster, "provider", 2008 Mean, `pop_mean')
+        local replace
+
+        areg `lhv' frac_mdemp_y* i.year , a(provider) cluster(provider)
+        outreg2 using $out/misc_1st.txt, ///
+            addtext(FE, "provider", Cluster, "provider", 2008 Mean, `pop_mean')
+
+        areg `lhv' syssize_y* i.year , a(provider) cluster(provider)
+        outreg2 using $out/misc_1st.txt, ///
+            addtext(FE, "provider", Cluster, "provider", 2008 Mean, `pop_mean')
+    }
+end
+
 
 } // End quiet
 
@@ -487,7 +632,16 @@ if regexm("`anything'", "system") {
     if regexm("`anything'", "sysfx") {
         main_patient_sysfx
     }
-    if regexm("`anything'", "oth") {
+    if regexm("`anything'", "1st") {
+        main_sysfx_1st
+    }
+}
+if regexm("`anything'", "misc") {
+    if regexm("`anything'", "2nd") {
+        main_patient_misc
+    }
+    if regexm("`anything'", "1st") {
+        main_misc_1st
     }
 }
 
