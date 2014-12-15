@@ -81,7 +81,7 @@ end
 prog def _inpatient_extract_year
     args year
 
-    local keep_ip_vars bene_id provider drg_cd fac_type admsn_dt dschrgdt clm_id
+    local keep_ip_vars bene_id provider drg_cd fac_type admsn_dt dschrgdt clm_id stus_cd
     use `keep_ip_vars' using $CMS_SRC/ip/`year'/ipc`year'
 
     destring fac_type drg_cd, replace
