@@ -33,7 +33,7 @@ global CORE_VARS    id dtbeg dtend ///
                     dbegm dbegy dendm dendy dcov ///
                     cntrl serv mname mloczip mstate subs sunits ///
                     hospbd paytot plnta adepra assnet gfeet ceamt fte* ///
-                    sysid subs mngt netwrk netname
+                    sysid subs mngt netwrk netname ///
 
 * keep mcrnum fcounty dbegm dbegy dendm dendy dcov cntrl serv mname mloczip mstate subs sunits hospbd paytot admtot ipdtot tehsp teint tetot  mmbtr ehlth plnta adepra assnet gfeet ceamt mmbtu fte*
 
@@ -64,7 +64,8 @@ foreach y of numlist $YEARLIST {
       ehlth* emeds elabs ftehsp ///
       hspft ///
       fttinta pttinta fteint ///
-      npi npinum
+      npi npinum ///
+
    }
    
    if `y'==2009 {
@@ -79,12 +80,14 @@ foreach y of numlist $YEARLIST {
    if `y'>=2010 {
       /* Change hospitalists from 'hspft' to 'ftehsp', FTE not FT 
          Remove 'hsppt', part time hospitalists 
-         Remove intensivists, except FTE */
+         Remove intensivists, except FTE
+         Add docs contract type
+       */
       keep $CORE_VARS   ///
       ftehsp ///
       ehlth* ftehsp ///
-      npi npinum
-      
+      npi npinum ///
+      tetot tctot tgtot netot tprtot
    }
 
 
@@ -300,6 +303,7 @@ collapse (mean) serv ///
          (sd) sdserv = serv ///
          (max) hasserv10 ehlth radmchi /// 
          (rawsum) x paytot admh ipdh beds_h mcrdch mcripdh mcddch mcdipdh ///
+                    tetot tctot tgtot netot tprtot ///
          (lastnm) sysid /// Already verfied as unique w/in hosp_id, year
          [aw=beds_h], by(hosp_id year)
 
