@@ -2,7 +2,7 @@ syntax anything
 cap log close
 
 quiet {
-
+set trace off
 set more off
 clear all
 
@@ -17,6 +17,7 @@ global REG_PREP reg-1403-prep
 
 global PLOT_STEM ../gph/plot-1403
 
+global out ../out/1412
 
 * Paramters
 *-----------
@@ -176,11 +177,13 @@ prog def _load_patient_data
 
     *Restrict sample
     keep if year >= 2008
-    if "`diagnosis'" != "" keep if `diagnosis' == 1
     // Drop anyone who doesn't have all outcomes in data
     keep if !inlist(., los, mort30, readmit_30)
     // Use only medicare-age patients
     keep if age_at_adm >= 65
+
+    * Restrict to single diagnosis (if passed; might restrict later)
+    if "`diagnosis'" != "" keep if `diagnosis' == 1
 
     * Make age-sex dummies (if needed)
     if `Xbins' == 1 {
@@ -193,7 +196,7 @@ prog def _load_patient_data
                 local agecut_1 = `agecut'
             }
         }
-        drop agecut69_fem0
+        drop agebin69_fem0
     }
 
 end
@@ -317,22 +320,153 @@ prog def main_system_summ
 
     egen rep_hosp = tag(hosp_id)
 
+    * System size
+    hist syssizemax if rep_sys == 1, ///
+         ti("System size (# hosps)")
+    graph export $out/system_size1.png, width(1500) replace
+
+    hist syssizemax if rep_sys == 1 & syssizemin >=5, ///
+         ti("System size (# hosps {&ge}5)") 
+    graph export $out/system_size2.png, width(1500) replace
+
     * System changers
     summ has_system_change if rep_hosp == 1
     tab year system_change
-    * System size
-    //hist syssizemax if rep_sys == 1
-    //hist syssizemax if rep_sys == 1 & syssizemin >=5, name(min)
-    * Adoption
+    * Adoption by system size
     foreach var in never always adopter {
         bys sysid: egen sys_`var' = mean(`var')
         binscatter `var' syssizemax if rep_sys == 1 , discrete name(`var') line(none)
         binscatter `var' syssizemax if rep_hops == 1, discrete name(`var'_hosp)
     }
 
+end
 
+prog def main_patient_sysfx
+    args focus
 
+    * Get hosp-sys xwalk w/ size
+    prep_hosp_data 2 0
+    keep if year == 2010
+    ren hosp_id provider
+    ren syssizemin syssize
+    keep provider sysid syssize
+    tempfile hospsys
+    compress
+    save `hospsys'
 
+    * Prep patient data
+    _load_patient_data 1
+
+    merge m:1 provider using `hospsys', keep(3) nogen
+
+    keep if syssize >=5
+
+    local patXs agebin* race_*
+    local replace replace
+    foreach diagnosis in heart_failure ami hipfrac pneumonia {
+        foreach lhv in los mort30 readmit_30 {
+            // Get baseline mean of LHV
+            qui summ `lhv' if `diagnosis' == 1 & year==2008
+            local pop_mean = r(mean)
+
+            * System reg
+            areg `lhv' i.year `patXs' if `diagnosis' == 1, ///
+                 a(sysid) cluster(provider)
+            outreg2 using $out/sysfx.txt, `replace' ///
+                addtext(Diag, "`diagnosis'", FE, "system", ///
+                        Cluster, "provider", 2008 Mean, `pop_mean')
+            // Get SSR_r
+            local ssr_r = e(rss)
+
+            * Hosp reg
+            areg `lhv' i.year `patXs' if `diagnosis' == 1, ///
+                 a(provider) cluster(provider)
+
+            // Do LM test
+            local ssr_u = e(rss)
+            foreach fxvar in sysid provider {
+                egen tag_`fxvar' = tag(`fxvar') if e(sample)
+                qui summ tag_`fxvar'
+                local num_`fxvar' = r(sum)
+            }
+            local q = `num_provider' - `num_sysid'
+            local dfr = e(N) - e(df_m) - e(df_a) -1
+            local F = ((`ssr_r' - `ssr_u') / `q') / (`ssr_u' / `dfr')
+            local pF = 1 - F(`q', `dfr', `F')
+            di "F-stat is " `F'
+            di "p is " `pF'
+
+            outreg2 using $out/sysfx.txt, `replace' ///
+                addtext(Diag, "`diagnosis'", FE, "provider", ///
+                        Cluster, "provider", 2008 Mean, `pop_mean', ///
+                        FX_F, `F', FX_p, `pF')
+            local replace
+
+            * Summ w/in system patterns
+            preserve
+            predict hosp_fx, d
+            keep if tag_provider == 1
+            egen rep_sys = tag(sysid)
+            // Density of hosp_fx
+            bys sysid: egen syss_m = mean(hosp_fx)
+            bys sysid: gen N = _N
+            gen hosp_fx_win = hosp_fx - syss_m
+            summ hosp_fx_win, d
+            twoway (kdensity hosp_fx) (kdensity hosp_fx_win), ///
+                   legend(lab(1 "Hosp FE") lab(2 "Hosp FE (demeaned)"))
+            graph export $out/hospfx_kdens_`diagnosis'_`lhv'.png, replace
+            // StdDev w/in system
+            qui summ hosp_fx
+            local pop_sd = r(sd)
+            bys sysid: egen syssd = sd(hosp_fx)
+            hist syssd if rep_sys == 1, ///
+                xti("W/in system std dev") xline(`pop_sd')
+            graph export $out/hospfx_hist_`diagnosis'_`lhv'.png, replace
+            // System rank range
+            xtile fx_rank = hosp_fx, n(100)
+            bys sysid: egen rank_80 = pctile(fx_rank), p(80)
+            bys sysid: egen rank_20 = pctile(fx_rank), p(20)
+            twoway (line rank_20 rank_20) (scatter rank_80 rank_20) ///
+                if rep_sys == 1, yti("Highest rank (80)") xti("Lowest rank (20)")
+            graph export $out/hospfx_scatter_`diagnosis'_`lhv'.png, replace
+            restore
+        }
+    }
+end
+
+prog def main_patient_oth
+    * Get hosp-sys xwalk w/ size
+    prep_hosp_data 2 0
+    keep if year == 2010
+    ren hosp_id provider
+    ren syssizemin syssize
+    keep provider sysid syssize
+    tempfile hospsys
+    compress
+    save `hospsys'
+
+    * Prep patient data
+    _load_patient_data 1
+
+    merge m:1 provider using `hospsys', keep(3) nogen
+
+    assert sysid != ""
+    gen byte in_sys = sys_id != provider
+
+    local patXs agebin* race_*
+    local replace replace
+    foreach diagnosis in heart_failure ami hipfrac pneumonia {
+        foreach lhv in los mort30 readmit_30 {
+            // Get baseline mean of LHV
+            qui summ `lhv' if `diagnosis' == 1 & year==2008
+            local pop_mean = r(mean)
+
+            * System reg
+            areg `lhv' i.year `patXs' if `diagnosis' == 1, ///
+                 a(sysid) cluster(provider)
+            outreg2 using $out/sysfx.txt, `replace' ///
+                addtext(Diag, "`diagnosis'", FE, "system", ///
+                        Cluster, "provider", 2008 Mean, `pop_mean')
 end
 
 } // End quiet
@@ -349,6 +483,11 @@ if regexm("`anything'", "takeupES") {
 if regexm("`anything'", "system") {
     if regexm("`anything'", "summ") {
         main_system_summ
+    }
+    if regexm("`anything'", "sysfx") {
+        main_patient_sysfx
+    }
+    if regexm("`anything'", "oth") {
     }
 }
 
