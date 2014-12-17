@@ -282,6 +282,17 @@ replace recent_b2 = 0 if recent_basic_note==. & our_basic_note==0
 gen group = payment_bed_group
 
 
+* Employment Variables
+*---------------------
+
+egen tot_docs_pr = rowtotal(tetot tctot tgtot netot)
+foreach yr in 2010 2011 {
+    gen temp = (tetot + tctot + tgtot) / tot_docs_pr if year == `yr'
+    bys hosp_id: egen frac_mdemp_`yr' = max(temp)
+    drop temp
+}
+
+
 save $OUT_REGREADY, replace
 
 

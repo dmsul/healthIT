@@ -341,5 +341,11 @@ foreach var of varlist app_* {
     label val `var' stati
 }
 
+* Flag for "hosp always exists"
+gen iscoreyear = inrange(year, 2008, 2011)
+bys hosp_id: egen num_coreyears = total(iscoreyear)
+gen byte existsincoreyears = num_coreyears == 4
+drop iscoreyear num_coreyears
+
 save $OUT_COMBINED, replace
 
