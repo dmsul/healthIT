@@ -9,9 +9,11 @@ set more off
     
 */
 
-* OS paths
-global SRCPATH /homes/data/himss
-global MY_SRCPATH /homes/nber/sullivan/himss.work/
+* I/O
+*------
+global SRCPATH $HIMSS_SRC
+global out_panel $himss_panel
+global out_extract $himss_extract
 
 * Data parameters
 global STARTYEAR 2005 
@@ -269,7 +271,6 @@ foreach year of numlist $STARTYEAR/2011 {
 ***************************************
 * Load software 'Application' table, make wide
 ***************************************
-/*
 /*            CHANGES IN THE DATA OVER TIME
     2007:
         'medical terminology' eliminated 
@@ -278,15 +279,14 @@ foreach year of numlist $STARTYEAR/2011 {
     2009:
         'EMR' eliminated
         'physician portal' added
-
 */
+
 clear all
 tempfile crap_data
 save `crap_data', emptyok
 summ
 
 foreach year of numlist $STARTYEAR/2011 {
-
     di as err "On year `year'"
     
     use $SRCPATH/`year'/HAEntityApplication, clear
@@ -299,10 +299,11 @@ foreach year of numlist $STARTYEAR/2011 {
     replace category = lower(category)
     
     * Consolated application names, will be variable names
-    global EMRAPPS data_repos cds cpoe ent_emr order_entry doc_doc med_termin doc_portal nurs_doc lab_is
+    global EMRAPPS data_repos cds cpoe ent_emr order_entry doc_doc med_termin ///
+                    doc_portal nurs_doc lab_is
     
     gen myapp = "oth"
-        // EMR apps
+    // EMR apps
     replace myapp = "data_repos" if application=="clinical data repository"
     replace myapp = "cds" if regexm(application,"clinical decision support")
     replace myapp = "cpoe" if regexm(application,"computerized practitioner order entry")
@@ -311,16 +312,11 @@ foreach year of numlist $STARTYEAR/2011 {
     replace myapp = "doc_doc" if application=="physician documentation"
     replace myapp = "med_termin" if regexm(application,"medical terminology")
     replace myapp = "doc_portal" if regexm(application,"physician portal")
-    
-        // Nursing apps
+    // Nursing apps
     replace myapp = "nurs_doc" if regexm(application,"nursing doc")
     replace myapp = "emar" if regexm(application,"(emar)")
-    
-        // Laboratory apps
+    // Laboratory apps
     replace myapp = "lab_is" if regexm(application,"laboratory information")
-    
-
-
     
     * Numerical status, higher number more "useful"
     gen app_ = .
@@ -375,10 +371,9 @@ foreach year of numlist $STARTYEAR/2011 {
     
     di as err "This is after year `year' was appended to app data"
     summ
-    
-    
 }
-save ../dta/temp_app_data, replace
+
+save $DATA_PATH/temp_app_data, replace
 summ
 
 */
@@ -462,7 +457,7 @@ foreach year of numlist $STARTYEAR/2011 {
 
 
 * Applications
-merge 1:1 haentityid using ../dta/temp_app_data
+merge 1:1 haentityid using $DATA_PATH/temp_app_data
 assert _merge!=2
 ren _merge _m_apps
 
@@ -594,7 +589,7 @@ foreach var in annualopcost annualrevenue dateofdata isplan isplanyear physft {
 **********************
 
 
-save ../dta/himss_panel_full, replace
+save $out_panel, replace
 
 * Restrict sample
 drop haentityid
@@ -620,6 +615,7 @@ replace temp = round(temp,1)
 replace emr = temp*25
 
 tab emr, miss
+drop temp
 
-save ../dta/himss-extract, replace
+save $out_extract, replace
 

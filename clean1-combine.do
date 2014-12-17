@@ -1,34 +1,24 @@
 /*
-    This file runs the necessary cleaning files and combines data from:
-        HospCompare, quality measures
-        HospCompare, mortality and readmission
-        HIMS
-        AHA
-        
-    Output:
-        "../dta/hIT-combineddata"
-        
         
 */
+set trace off
 set more off
 
-global EDITION 130812
+* I/O
+*-------
+global IN_AHA $aha_clean_dta
+global IN_HIMSS $himss_extract
+global IN_COMPARE_CORE $hcompare_coremsr_dta
+global IN_COMPARE_MORT $hcompare_mortality_dta
+global IN_EHRPROG $ehr_progpayments_dta
 
-global HIMSS_PATH /homes/nber/sullivan/himss.work
-global AHA_PATH /homes/nber/sullivan/aha.work
-global MY_PATH /homes/nber/sullivan/research/healthIT
-
-**********************
-**        I/O
-**********************
-
-
+global OUT_COMBINED $combined_dta
 
 
+* MAIN
+*-------
 
-
-
-import excel using "../src/MedicaidEHRStateLaunch.xls", clear
+import excel using "$DATA_PATH/source/MedicaidEHRStateLaunch.xls", clear
 ren A state
 ren B launchmo
 ren C launchyr
@@ -51,27 +41,27 @@ save `stateprogs'
 clear all
 
 /*
-*run ../do/hIT-clean-hospcompare-coremsr-130713 1
-*run ../do/hIT-clean-hospcompare-mortality-130713
-*run ../do/hIT-clean-EHRprogram-130713
-run ../do/clean0-aha
-do ../do/clean0-himss
+*run clean0-hcompare-core
+*run clean0-hcompare-mort
+*run clean0-EHRprogram
+*run clean0-aha
+*run clean0-himss
 */
 
-use ../dta/himss-extract
+use $IN_HIMSS
 
 drop if hosp_id=="" // Need to fix this.
 
 **** Combine datasets
-merge 1:1 hosp_id year using $MY_PATH/dta/temp-mortality
+merge 1:1 hosp_id year using $IN_COMPARE_MORT
 drop if _merge==2
 rename _merge _m_mortality
 
-merge 1:1 hosp_id year using $MY_PATH/dta/temp-coremsr
+merge 1:1 hosp_id year using $IN_COMPARE_CORE
 drop if _merge==2
 rename _merge _m_coremsr
 
-merge 1:1 hosp_id year using $MY_PATH/dta/temp-ehrprog
+merge 1:1 hosp_id year using $IN_EHRPROG
 drop if _merge==2
 
 forval i=2011/2013 {
@@ -87,7 +77,7 @@ drop _merge
 
 * Expand to include 2006 and 2007 for merge of AHA [later]?
 
-merge 1:1 hosp_id year using $AHA_PATH/dta/hIT-aha-clean
+merge 1:1 hosp_id year using $IN_AHA
 
 
 tab serv _merge
@@ -351,5 +341,11 @@ foreach var of varlist app_* {
     label val `var' stati
 }
 
+* Flag for "hosp always exists"
+gen iscoreyear = inrange(year, 2008, 2011)
+bys hosp_id: egen num_coreyears = total(iscoreyear)
+gen byte existsincoreyears = num_coreyears == 4
+drop iscoreyear num_coreyears
 
-save ../dta/hIT-combineddata-new, replace
+save $OUT_COMBINED, replace
+
