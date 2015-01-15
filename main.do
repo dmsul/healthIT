@@ -1,4 +1,4 @@
-syntax anything
+syntax [anything]
 cap log close
 
 quiet {
@@ -17,7 +17,7 @@ global REG_PREP reg-1403-prep
 
 global PLOT_STEM ../gph/plot-1403
 
-global out ../out/1412
+global out ../out/1501
 
 * Paramters
 *-----------
@@ -28,6 +28,9 @@ global out ../out/1412
     4) None
 */
 
+global LHV_z z_core z_read z_mort
+global LHV_hospcomp z_scipinf3 z_scipvte2 z_vte5 z_stk4 z_pn7
+global LHV_1st our_basic_notes our_comprehensive
 
 * routines
 *----------
@@ -236,7 +239,7 @@ prog def _plot_means_by_takeup
     */
 end
 
-prog def _ES_by_takeup
+prog def _pat_ES_by_takeup
 
     _load_patient_data 1
 
@@ -304,14 +307,14 @@ prog def main_ES_simple
     }
 end
 
-prog def main_ES_by_takeup
+prog def main_pat_ES_by_takeup
     /* ES regs with separate event studies for firms by hosp EMR use categorys
      * 'never', 'always', and 'adopters'. Several definitions of EMR are used,
      * indexed by "emr_type" */
 
     foreach emr_type in 1 2 3 {
         prep_hosp_data `emr_type' 1
-        _ES_by_takeup
+        _pat_ES_by_takeup
     }
 end
 
@@ -349,6 +352,48 @@ prog def main_system_summ
         hist d_`var' if rep_sys == 1, xti("Hi/low difference") ti("System `var'")
         graph export $out/sys_disp_hist_`var'.png, replace
     }
+end
+
+prog def main_system_summ_DIRTY
+    prep_hosp_data 2 0 
+
+    egen rep_hosp = tag(hosp_id)
+
+    keep if syssizemin >=5
+
+    gen at_end = always + adopter
+
+    * System size
+    /*
+    hist syssizemax if rep_sys == 1, ti("System size (# hosps {&ge}5)") 
+    graph export $out/sys_histsize.png, width(1500) replace
+    */
+
+    * System changers
+    summ has_system_change if rep_hosp == 1
+    tab year system_change
+
+    * Adoption by system size
+    foreach var in never always adopter at_end {
+        bys sysid: egen mean_`var' = mean(`var')
+        twoway (scatter mean_`var' syssizemin) if rep_sys == 1  , name(`var')
+        graph export $out/summ_sys_takeup_`var'.png, width(1500) replace
+    }
+    * Misc hosp X's dispersion w/in system
+    /*
+    foreach var in frac_mdemp_2010 {
+        bys sysid: egen mean_`var' = mean(`var')
+        bys sysid: egen hi_`var' = pctile(`var'), p(80)
+        bys sysid: egen lo_`var' = pctile(`var'), p(20)
+        twoway (line lo_`var' lo_`var') (scatter hi_`var' lo_`var') if rep_sys ==1, ///
+               yti("Sys's high value (80)") xti("Sys's low value (20)") ///
+               ti("W/in system spread of `var'")
+        graph export $out/sys_disp_scatter_`var'.png, replace
+        gen d_`var' = hi_`var' - lo_`var'
+        hist d_`var' if rep_sys == 1, xti("Hi/low difference") ti("System `var'")
+        graph export $out/sys_disp_hist_`var'.png, replace
+    }
+    */
 end
 
 prog def main_patient_sysfx
@@ -579,7 +624,7 @@ prog def main_patient_misc
     }
 end
 
-prog def main_misc_1st
+prog def main_misc_hosp
 
     prep_hosp_data 2 0
     ren hosp_id provider
@@ -593,22 +638,22 @@ prog def main_misc_1st
     }
     local replace replace
 
-    foreach lhv in live_cpoe our_basic_notes our_comprehensive {
+    foreach lhv in $LHV_1st $LHV_hospcomp $LHV_z {
         // Get baseline mean of LHV
         qui summ `lhv' if year==2008
         local pop_mean = r(mean)
 
         areg `lhv' in_sys_y* i.year , a(provider) cluster(provider)
-        outreg2 using $out/misc_1st.txt, `replace' ///
+        outreg2 using $out/misc_hosp.txt, `replace' ///
             addtext(FE, "provider", Cluster, "provider", 2008 Mean, `pop_mean')
         local replace
 
         areg `lhv' frac_mdemp_y* i.year , a(provider) cluster(provider)
-        outreg2 using $out/misc_1st.txt, ///
+        outreg2 using $out/misc_hosp.txt, ///
             addtext(FE, "provider", Cluster, "provider", 2008 Mean, `pop_mean')
 
         areg `lhv' syssize_y* i.year , a(provider) cluster(provider)
-        outreg2 using $out/misc_1st.txt, ///
+        outreg2 using $out/misc_hosp.txt, ///
             addtext(FE, "provider", Cluster, "provider", 2008 Mean, `pop_mean')
     }
 end
@@ -623,7 +668,7 @@ if regexm("`anything'", "simpleES") {
     main_ES_simple
 }
 if regexm("`anything'", "takeupES") {
-    main_ES_by_takeup
+    main_pat_ES_by_takeup
 }
 if regexm("`anything'", "system") {
     if regexm("`anything'", "summ") {
@@ -637,11 +682,11 @@ if regexm("`anything'", "system") {
     }
 }
 if regexm("`anything'", "misc") {
-    if regexm("`anything'", "2nd") {
+    if regexm("`anything'", "pat") {
         main_patient_misc
     }
-    if regexm("`anything'", "1st") {
-        main_misc_1st
+    if regexm("`anything'", "hosp") {
+        main_misc_hosp
     }
 }
 

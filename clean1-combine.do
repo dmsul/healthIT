@@ -1,8 +1,7 @@
-/*
-        
-*/
 set trace off
 set more off
+
+run src/globals
 
 * I/O
 *-------
@@ -18,6 +17,7 @@ global OUT_COMBINED $combined_dta
 * MAIN
 *-------
 
+/*
 import excel using "$DATA_PATH/source/MedicaidEHRStateLaunch.xls", clear
 ren A state
 ren B launchmo
@@ -37,6 +37,7 @@ foreach var in launch firstpay MUattest {
 
 tempfile stateprogs
 save `stateprogs'
+*/
 
 clear all
 
@@ -61,6 +62,7 @@ merge 1:1 hosp_id year using $IN_COMPARE_CORE
 drop if _merge==2
 rename _merge _m_coremsr
 
+/* XXX [1/15/15] 
 merge 1:1 hosp_id year using $IN_EHRPROG
 drop if _merge==2
 
@@ -70,6 +72,7 @@ forval i=2011/2013 {
 egen paid_by_mcr = rowmax(ehr_prog*)
 
 drop _merge
+*/
 
 
 
@@ -169,7 +172,7 @@ foreach val in 0 25 50 75 100 {
 foreach metric in mort read core {
     
     if "`metric'"=="core" {
-        foreach var in ami8a hf1 pn2 scipvte1 {
+        foreach var in ami8a hf1 pn2 scipvte1 scipinf3 scipvte2 vte5 stk4 pn7 {
             egen mean1_`var'`metric' = mean(`var') //, by(year)
             egen sd1_`var'`metric' = sd(`var') //, by(year)
             gen z_`var'`metric' = (`var' - mean1_`var'`metric')/sd1_`var'`metric'
