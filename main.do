@@ -70,7 +70,7 @@ prog def _prep_healthsystem_vars
 end
 
 prog def prep_hosp_data
-    /* Get hospitals' EMR usage patterns.
+    /* Get hospitals' EMR usage patterns over time.
        (This used to be its own file, regs-*-prep.do) */
 
     args control takeuponly
