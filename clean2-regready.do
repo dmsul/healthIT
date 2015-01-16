@@ -172,25 +172,65 @@ foreach var in payment_rev payment_bed payment_fte payment beds_h {
 **    hIT variables
 *********************
 
-    * Each software type is 'live' this year
+* Each software type is 'live' this year
 foreach var in cpoe cds data_repos emar {
-    gen live_`var' = inlist(app_`var',1,2) if app_`var'!=.
+    gen live_`var' = inlist(app_`var', 1, 2) if app_`var'!=.
 }
 
-    * 
-gen our_basic = app_data_repos==1 & app_cpoe==1 if in_app==1
-gen our_basic_notes = our_basic * (app_doc_doc==1) if in_app==1
+*  Define our versions of IT uptake (least to most restrictive)
+/*
+ONC Data Brief (March 2013) definitions, see Table 2:
+"certified"
+    "meeting some or all MU objectives."
+"basic"
+    Patient demogs, problem lists, med lists, discharge summaries, CPOE:
+    medications; view: lab reports, radiology reports, diagnostic tests;
+"basic w notes"
+    "basic", plus physician notes, nursing assessments
+"comprehensive"
+    "b w notes", plus 'advance directives', CPOE: lab reports, radiology,
+    consult requests, nursing orders; view: radiology images, diag test images,
+    consult reports
 
-gen our_certified = inlist(1,app_data_repos,app_cds,app_cpoe,app_doc_doc,app_nurs_doc,app_emar) if in_app==1
+ */
+gen our_certified = inlist(1, app_data_repos, app_cds, app_cpoe, app_doc_doc, ///
+                           app_nurs_doc, app_emar) if in_app==1
 
-    *
-gen our_comprehensive = app_data_repos==1 & app_doc_doc==1 & app_nurs_doc==1 & app_cpoe==1 & app_cds==1 & app_emar==1 & pacs_imgdist==1 if in_app==1 & in_pacs==1
-gen our_compre_2009 = our_comprehensive==1 & cdss_guide==1 & cdss_drug_int==1 & cdss_dose==1 if our_comprehensive!=. & in_cdss==1
-gen our_compre_result = our_comprehensive==1 & inrange(comp_results,1,100) if our_comprehensive!=. & in_comp==1
-gen our_compre_result2009 = our_comprehensive==1 & inrange(comp_results,1,100) & cdss_guide==1 & cdss_drug_int==1 & cdss_dose==1 if our_comprehensive!=. & in_cdss==1 & in_comp==1
+gen our_basic =         app_data_repos==1 & ///
+                        app_cpoe==1 ///
+                        if in_app==1
+gen our_basic_notes =   our_basic * (app_doc_doc==1) if in_app==1
 
+
+gen our_comprehensive = app_data_repos == 1 & ///
+                        app_doc_doc == 1 & ///
+                        app_nurs_doc == 1 & ///
+                        app_cpoe == 1 & ///
+                        app_cds == 1 & ///
+                        app_emar == 1 & ///
+                        pacs_imgdist == 1 ///
+                        if in_app == 1 & in_pacs == 1
+
+/* CDSS variables only begin in 2009 */
+gen our_compre_2009 =   our_comprehensive == 1 & ///
+                        cdss_guide == 1 & ///
+                        cdss_drug_int == 1 & ///
+                        cdss_dose == 1 ///
+                        if our_comprehensive != . & in_cdss == 1
+/* Some other coverage problem with 'result' */
+gen our_compre_result = our_comprehensive == 1 & ///
+                        inrange(comp_results, 1, 100) ///
+                        if our_comprehensive != . & in_comp == 1
+
+gen our_compre_result2009 = our_comprehensive == 1 & ///
+                            inrange(comp_results, 1, 100) & ///
+                            cdss_guide == 1 & ///
+                            cdss_drug_int == 1 & ///
+                            cdss_dose == 1 ///
+                            if our_comprehensive!=. & in_cdss == 1 & in_comp == 1
+
+/* Replication of Agha (J Health Econ?, 2013 or 14) paper */
 gen agha_hit = inlist(app_cds,1,2,3,4) | inlist(app_ent_emr,1,2,3,4)
-
 
 
 egen any_app = rowmin(app_*) if in_app==1
@@ -269,11 +309,6 @@ egen recent_certified = rowmax(recent_data_repos`rflag' recent_cds`rflag' recent
 
 egen recent_comprehensive = rowmax(recent_data_repos`rflag' recent_cpoe`rflag' recent_doc_doc`rflag' recent_nurs_doc`rflag' recent_cds`rflag' recent_emar`rflag' recent_imgdist) if in_app==1 & in_pacs==1
 
-*gen our_compre_2009 = our_comprehensive==1 & cdss_guide==1 & cdss_drug_int==1 & cdss_dose==1 if our_comprehensive!=. & in_cdss==1
-*gen our_compre_result = our_comprehensive==1 & inrange(comp_results,1,100) if our_comprehensive!=. & in_comp==1
-*gen our_compre_result2009 = our_comprehensive==1 & inrange(comp_results,1,100) & cdss_guide==1 & cdss_drug_int==1 & cdss_dose==1 if our_comprehensive!=. & in_cdss==1 & in_comp==1
-
-*gen agha_hit = inlist(app_cds,1,2,3,4) | inlist(app_ent_emr,1,2,3,4)
 
 gen recent_b2 = recent_basic_note
 replace recent_b2 = 0 if recent_basic_note==. & our_basic_note==0

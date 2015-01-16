@@ -25,7 +25,8 @@ global aha_clean_dta "$AHA_SRC/hIT-aha-clean"
 global hcompare_coremsr_dta "$DATA_PATH/hcompare_coremsr"
 global hcompare_mortality_dta "$DATA_PATH/hcompare_mortality"
 
-global ehr_progpayments_dta "$DATA_PATH/ehr_progpayments"
+global cms_ehr_payments_dta     "$DATA_PATH/cms_ehr_payments"
+global cms_MU_measures_dta      "$DATA_PATH/cms_MU_measures"
 
 * Combined data
 global combined_dta $DATA_PATH/hIT-combineddata
