@@ -6,7 +6,7 @@ clear all
 run src/globals
 run main
 
-global out ../out/1501
+global out $OUT_PATH
 
 main_system_summ_DIRTY
 

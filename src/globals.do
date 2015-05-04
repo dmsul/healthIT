@@ -11,6 +11,8 @@ else {
     error 999
 }
 
+global OUT_PATH ../out/1505
+
 * Src paths
 global HIMSS_SRC "/homes/data/himss"
 global COSTREPORT_SRC "/homes/data/hcris"

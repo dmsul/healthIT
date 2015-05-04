@@ -4,7 +4,7 @@ clear all
 
 run src/globals
 
-global out ../out/1501
+global out $OUT_PATH
 
 prog def payments_only
 

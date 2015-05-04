@@ -4,7 +4,7 @@ clear all
 
 run src/globals
 
-global out ../out/1501
+global out $OUT_PATH
 
 global LHV_z z_core z_read z_mort
 global LHV_hospcomp z_scipinf3 z_scipvte2 z_vte5 z_stk4 z_pn7
