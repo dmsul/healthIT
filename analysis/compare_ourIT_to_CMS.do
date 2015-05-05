@@ -7,41 +7,11 @@ run src/globals
 
 global out $OUT_PATH
 
-prog def payments
 
-    use $cms_ehr_payments_dta
-    // Get total and 'normed to 4 years' pay
-    /* Because we use total over 4 years in the other files */
-    bys hosp_id: egen cms_tot_pay = total(cms_pay)
-    bys hosp_id: gen T = _N
-    gen cms_pay_4year = (cms_tot_pay/T)*4
-    // Janky fillin/reshape because our only year of joint coverage is 2011
-    foreach year in 2011 2012 {
-        gen temp = cms_payment if year == `year'
-        bys hosp_id: egen cms_pay`year' = max(temp)
-        replace cms_pay`year' = 0 if cms_pay`year' == .
-        drop temp
-    }
-
-    keep hosp_id cms_pay201* cms_pay_4year 
-    duplicates drop
-
-    tempfile cms_pay
-    save `cms_pay'
-
-    use $combined_dta
-    merge m:1 hosp_id using `cms_pay', keep(1 3)
-
-    gen our_ehrpay_1year = bene_tot/4
-    gen our_ehrpay_4year = bene_tot
-    foreach var of varlist cms_pay* {
-        replace `var' = 0 if `var' == . & _merge == 1
-    }
-
+prog def summ_payments
+    prep_combined_payment_data
     _extensive_margin
-
     _intensive_margin
-
 end
 prog def _extensive_margin
     gen us_pay = our_ehrpay_1year > 0 if our_ehrpay_1year < .
@@ -90,6 +60,61 @@ prog def _intensive_margin
                 addtext("Zeros", "`use_zeros'", "Years", "`pay_time'")
             local replace
         }
+    }
+
+end
+
+prog def payment_outliers
+    prep_combined_payment_data
+    * Get list of `hosp_id` for whom are predictions are especially bad
+    tab hosp_id if our_ehrpay_4year > 1e8 & our_ehrpay_4year < .
+    keep if our_ehrpay_4year > 1e8 & our_ehrpay_4year < .
+    keep hosp_id our_ehrpay_4year cms_pay_4year beds_h
+    bys hosp_id (beds_h): keep if _n == _N
+    tempfile bad_predicts
+    save `bad_predicts'
+    * Get the hospital name, system name, and state
+    use "$AHA_SRC/data20130712/aha_extract2010", clear
+    ren mcrnum hosp_id
+    keep hosp_id mname sysname mstate
+    merge m:1 hosp_id using `bad_predicts', keep(2 3)
+
+    gen error = our_ehrpay_4year - cms_pay_4year
+    drop hosp_id _merge
+    list
+
+    outsheet using $OUT_PATH/list_bad_paymentpredict.csv, comma names
+end
+
+prog def prep_combined_payment_data
+
+    use $cms_ehr_payments_dta
+    // Get total and 'normed to 4 years' pay
+    /* Because we use total over 4 years in the other files */
+    bys hosp_id: egen cms_tot_pay = total(cms_pay)
+    bys hosp_id: gen T = _N
+    gen cms_pay_4year = (cms_tot_pay/T)*4
+    // Janky fillin/reshape because our only year of joint coverage is 2011
+    foreach year in 2011 2012 {
+        gen temp = cms_payment if year == `year'
+        bys hosp_id: egen cms_pay`year' = max(temp)
+        replace cms_pay`year' = 0 if cms_pay`year' == .
+        drop temp
+    }
+
+    keep hosp_id cms_pay201* cms_pay_4year 
+    duplicates drop
+
+    tempfile cms_pay
+    save `cms_pay'
+
+    use $combined_dta
+    merge m:1 hosp_id using `cms_pay', keep(1 3)
+
+    gen our_ehrpay_1year = bene_tot/4
+    gen our_ehrpay_4year = bene_tot
+    foreach var of varlist cms_pay* {
+        replace `var' = 0 if `var' == . & _merge == 1
     }
 
 end
@@ -150,5 +175,6 @@ prog def mu_measures
 end
 } // End subroutine quiet
 
-payments
-mu_measures
+//summ_payments
+payment_outliers
+//mu_measures
