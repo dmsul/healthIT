@@ -35,43 +35,6 @@ global LHV_1st our_basic_notes our_comprehensive
 * routines
 *----------
 
-prog def _prep_healthsystem_vars
-        /* To be used on 'regready_dta' data */
-
-        * Impute system if sysid = "" probably wrong
-        // Get modal sys and 'how' modal it is
-        bys hosp_id: egen modal_sys = mode(sysid), miss
-        gen is_modal = sysid == modal_sys
-        bys hosp_id: egen count_modal_sys = total(is_modal)
-        // Make sure onlyl 4 years before using impute rule
-        qui summ year
-        assert r(max) == 2011 & r(min) == 2008
-        // Impute
-        replace sysid = modal_sys if sysid == "" & count_modal_sys == 3 & modal_sys != ""
-        // cleanup
-        drop modal_sys count_modal_sys is_modal
-
-        * Flag system changes
-        bys hosp_id (year): gen system_change = sysid != sysid[_n -1]
-        replace system_change = 0 if year == 2008
-        bys hosp_id: egen has_system_change = max(system_change)
-
-        * System size
-        // Don't lump missings as one system
-        replace sysid = hosp_id if sysid == ""
-        assert sysid != ""
-        // W/in year
-        egen systag = tag(sysid year)
-        bys sysid year: gen syssizeyear = _N
-        egen tmp = cut(syssize), at(0, 1, 2, 5, 10, 20, 50, 100, 200)
-        bys sysid: egen syssizemax = max(syssizeyear)
-        bys sysid: egen syssizemin = min(syssizeyear)
-
-        egen rep_sysyear = tag(sysid year)
-        egen rep_sys = tag(sysid)
-
-end
-
 prog def prep_hosp_data
     /* Get hospitals' EMR usage patterns over time.
        (This used to be its own file, regs-*-prep.do) */
@@ -170,6 +133,42 @@ prog def prep_hosp_data
 
         save $DATA_PATH/tmp_takeupflag, replace
     }
+
+end
+prog def _prep_healthsystem_vars
+        /* To be used on 'regready_dta' data */
+
+        * Impute system if sysid = "" probably wrong
+        // Get modal sys and 'how' modal it is
+        bys hosp_id: egen modal_sys = mode(sysid), miss
+        gen is_modal = sysid == modal_sys
+        bys hosp_id: egen count_modal_sys = total(is_modal)
+        // Make sure onlyl 4 years before using impute rule
+        qui summ year
+        assert r(max) == 2011 & r(min) == 2008
+        // Impute
+        replace sysid = modal_sys if sysid == "" & count_modal_sys == 3 & modal_sys != ""
+        // cleanup
+        drop modal_sys count_modal_sys is_modal
+
+        * Flag system changes
+        bys hosp_id (year): gen system_change = sysid != sysid[_n -1]
+        replace system_change = 0 if year == 2008
+        bys hosp_id: egen has_system_change = max(system_change)
+
+        * System size
+        // Don't lump missings as one system
+        replace sysid = hosp_id if sysid == ""
+        assert sysid != ""
+        // W/in year
+        egen systag = tag(sysid year)
+        bys sysid year: gen syssizeyear = _N
+        egen tmp = cut(syssize), at(0, 1, 2, 5, 10, 20, 50, 100, 200)
+        bys sysid: egen syssizemax = max(syssizeyear)
+        bys sysid: egen syssizemin = min(syssizeyear)
+
+        egen rep_sysyear = tag(sysid year)
+        egen rep_sys = tag(sysid)
 
 end
 
