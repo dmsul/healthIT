@@ -13,6 +13,24 @@ global LHV_hospcomp z_scipinf3 z_scipvte2 z_vte5 z_stk4 z_pn7
 global LHV_1st our_basic_notes our_comprehensive
 
 
+prog def main_by_syssize
+    /* For 150715 mtg */
+    data_prep
+
+    foreach minsize in 10 15 20 {
+        foreach lhv in $LHV_1st $LHV_z $LHV_hospcomp {
+            preserve
+            local before = `=_N'
+            _restrict_syssize, minsize(`minsize')
+            local after = `=_N'
+            noi di "Sample size before and after: `before' and `after'"
+            plot_variance_guts `lhv' `minsize'
+            restore
+        }
+    }
+
+end
+
 prog def main_by_ownership
     /* For 150715 mtg */
     data_prep
@@ -70,10 +88,16 @@ prog def data_prep
     bys sysid year: gen syssize = _N
     bys hosp_id: egen hosp_syssizemin = min(syssizemin)
     * Restrict to big systems
-    gen is_bigsys = syssizemin >= 5
-    bys hosp_id: egen has_bigsys = max(is_bigsys)
-    keep if has_bigsys == 1
+    _restrict_syssize
+  end
+prog def _restrict_syssize
+    syntax [varlist] [, minsize(integer 5)]
+    tempvar is_bigsys has_bigsys
+    gen `is_bigsys' = syssizemin >= `minsize'
+    bys hosp_id: egen `has_bigsys' = max(`is_bigsys')
+    keep if `has_bigsys' == 1
 end
+
 prog def plot_variance_guts
     args lhv file_infix
     capture { // XXX last minute fix for "no obs"
