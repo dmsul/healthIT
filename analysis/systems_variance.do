@@ -17,14 +17,18 @@ prog def main_by_syssize
     /* For 150715 mtg */
     data_prep
 
-    foreach minsize in 10 15 20 {
+    foreach minsize in 5 10 20 {
         foreach lhv in $LHV_1st $LHV_z $LHV_hospcomp {
+            if `minsize' == 5 local sizemax = 9
+            else if `minsize' == 10 local sizemax = 19
+            else if `minsize' == 20 local sizemax = 99999
+
             preserve
             local before = `=_N'
-            _restrict_syssize, minsize(`minsize')
+            keep if inrange(syssizemin, `minsize', `sizemax')
             local after = `=_N'
             noi di "Sample size before and after: `before' and `after'"
-            plot_variance_guts `lhv' `minsize'
+            plot_variance_guts `lhv' syssize`minsize'
             restore
         }
     }
