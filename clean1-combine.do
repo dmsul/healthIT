@@ -104,19 +104,6 @@ gen ehr_full = ehlth==2
 gen ehr_any = ehr_full | ehr_part
 gen ehr_miss = ehlth==.
 
-* Ownership
-/*
-replace owner = 3 if owner==. & inrange(cntrl,12,16) // gov_local_aha
-replace owner = 2 if owner==. & inrange(cntrl,21,23) //nfp_aha
-replace owner = 1 if owner==. & inrange(cntrl,30,33) // fp_aha
-
-drop if owner==. & inrange(cntrl,41,48) // federal gov't according to AHA
-
-gen profit = owner==1 & owner<.
-gen nonprofit = owner==2 & owner<.
-gen localgov = owner==3 & owner<.
-*/
-
 * Impute emr from AHA ehlth
 tab emr ehlth, miss
 replace emr = 0 if ehlth==0 & emr==. & year>=2008
