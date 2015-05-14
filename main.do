@@ -1,4 +1,4 @@
-syntax [anything]
+args `subroutine'
 cap log close
 
 quiet {
@@ -660,32 +660,4 @@ end
 
 } // End quiet
 
-if regexm("`anything'", "plot") {
-    main_plot_means_by_takeup
-}
-if regexm("`anything'", "simpleES") {
-    main_ES_simple
-}
-if regexm("`anything'", "takeupES") {
-    main_pat_ES_by_takeup
-}
-if regexm("`anything'", "system") {
-    if regexm("`anything'", "summ") {
-        main_system_summ
-    }
-    if regexm("`anything'", "sysfx") {
-        main_patient_sysfx
-    }
-    if regexm("`anything'", "1st") {
-        main_sysfx_1st
-    }
-}
-if regexm("`anything'", "misc") {
-    if regexm("`anything'", "pat") {
-        main_patient_misc
-    }
-    if regexm("`anything'", "hosp") {
-        main_misc_hosp
-    }
-}
-
+`subroutine'
