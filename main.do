@@ -125,9 +125,11 @@ prog def prep_hosp_data
     _prep_healthsystem_vars
     
     * Maybe prune variables, save
+    ren syssizemin syssize
     if `takeuponly' == 1 {
         keep hosp_id sysid year takeup size syssize sysid system_change ///
                 has_system_change
+        keep if year == 2011
 
         // To merge with patient data
         ren hosp_id provider
@@ -276,7 +278,7 @@ prog def _pat_ESreg_by_takeup
     }
 end
 
-prog def main_patient_plot_means_by_takeup
+prog def main_pat_plot_means_takeup
     foreach emr_type in 1 2 3 0 {
         foreach diag in heart_failure ami hipfrac pneumonia {
             prep_hosp_data `emr_type' 1
@@ -613,18 +615,6 @@ prog def main_hosp_misc
         areg `lhv' syssize_y* i.year , a(provider) cluster(provider)
         outreg2 using $out/misc_hosp.txt, ///
             addtext(FE, "provider", Cluster, "provider", 2008 Mean, `pop_mean')
-    }
-end
-
-* System case studies
-prog def hosp_means_by_takeup_adoptingsystems
-    /* Restrict sample to systems with big changes in program participation
-     * between 2011 and 2012 */
-    foreach emr_type in 1 2 3 0 {
-        foreach diag in heart_failure ami hipfrac pneumonia {
-            prep_hosp_data `emr_type' 1
-            _plot_patient_means_by_takeup `diag'
-        }
     }
 end
 

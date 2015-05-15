@@ -64,7 +64,7 @@ prog def payments_by_syssize
 
     binscatter cms_payment syssize if syssize > 5, discrete by(year) ///
         legend(row(1)) name(pay_ts) ti("Avg Payment by System Size")
-    graph export $out/cmsprog_syst_pay.png, width(1500) replace
+    * graph export $out/cmsprog_syst_pay.png, width(1500) replace
     */
 
     bys sysid year: gen n = _N
@@ -72,14 +72,15 @@ prog def payments_by_syssize
     egen rep_sy = tag(sysid year)
     binscatter frac_sys_paid syssize if rep_sy == 1 & syssize > 5, discrete by(year) ///
         legend(row(1)) ti("% of System Paid") yti("Fraction paid")
-    graph export $out/cmsprog_syst_fracpaid.png, width(1500) replace
+    * graph export $out/cmsprog_syst_fracpaid.png, width(1500) replace
     */
 
     tabout syssize year if rep_sy using $out/cmsprog_tab_syssize_year.tex, ///
         replace style(tex) sum cells(N frac_sys_paid) f(0)
     tabout syssize year if rep_sy using $out/cmsprog_tab_syssize_year_frac.tex, ///
-        replace style(tex) sum cells(mean frac_sys_paid) f(2)
+        * replace style(tex) sum cells(mean frac_sys_paid) f(2)
     */
+    asdf
 
     twoway ///
         (kdensity cms_payment if year == 2011 & syssize == 131) ///
@@ -113,5 +114,5 @@ prog def summ_MU_data
     twoway (connected count year) (connected mean year, yaxis(2))
 end
 
-payments_only
+*payments_only
 payments_by_syssize
