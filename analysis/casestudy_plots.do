@@ -1,3 +1,4 @@
+args subroutine
 /*
     Focus on systems that had large changes in within-system participation
     rates in the EHR incentives program.
@@ -16,7 +17,6 @@ sysid's
 */
 
 
-// Run the z_core etc raw means using hosp-level data only
 prog def plot_hosplvl
     foreach emr_type in  2  {
         prep_hosp_data `emr_type' 1
@@ -27,6 +27,7 @@ prog def plot_hosplvl
 end
 
 prog def _plot_patient_means_by_takeup2
+    /* Plot raw patient means by whatever takeup variables are in data */
     args diagnosis
 
     _load_patient_data 0 `diagnosis'
@@ -64,6 +65,4 @@ prog def _plot_patient_means_by_takeup2
     */
 end
 
-// Plot patient outcomes after controlling for patient X's, etc.
-
-plot_hosplvl
+`subroutine'
