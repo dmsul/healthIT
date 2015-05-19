@@ -1,4 +1,4 @@
-syntax [anything]
+args `subroutine'
 cap log close
 
 quiet {
@@ -125,8 +125,11 @@ prog def prep_hosp_data
     _prep_healthsystem_vars
     
     * Maybe prune variables, save
+    ren syssizemin syssize
     if `takeuponly' == 1 {
-        keep hosp_id sysid year takeup size system_change has_system_change
+        keep hosp_id sysid year takeup size syssize sysid system_change ///
+                has_system_change
+        keep if year == 2011
 
         // To merge with patient data
         ren hosp_id provider
@@ -203,7 +206,7 @@ prog def _load_patient_data
 
 end
 
-prog def _plot_means_by_takeup
+prog def _plot_patient_means_by_takeup
     args diagnosis
 
     _load_patient_data 0 `diagnosis'
@@ -238,7 +241,7 @@ prog def _plot_means_by_takeup
     */
 end
 
-prog def _pat_ES_by_takeup
+prog def _pat_ESreg_by_takeup
 
     _load_patient_data 1
 
@@ -275,16 +278,16 @@ prog def _pat_ES_by_takeup
     }
 end
 
-prog def main_plot_means_by_takeup
+prog def main_pat_plot_means_takeup
     foreach emr_type in 1 2 3 0 {
         foreach diag in heart_failure ami hipfrac pneumonia {
             prep_hosp_data `emr_type' 1
-            _plot_means_by_takeup `diag'
+            _plot_patient_means_by_takeup `diag'
         }
     }
 end
 
-prog def main_ES_simple
+prog def main_patient_ESregs_simple
     /* ES regs by diagnosis assuming constant effects over time for all
      * hospitals */
 
@@ -306,18 +309,18 @@ prog def main_ES_simple
     }
 end
 
-prog def main_pat_ES_by_takeup
+prog def main_patient_ESregs_by_takeup
     /* ES regs with separate event studies for firms by hosp EMR use categorys
      * 'never', 'always', and 'adopters'. Several definitions of EMR are used,
      * indexed by "emr_type" */
 
     foreach emr_type in 1 2 3 {
         prep_hosp_data `emr_type' 1
-        _pat_ES_by_takeup
+        _pat_ESreg_by_takeup
     }
 end
 
-prog def main_system_summ
+prog def main_summ_system
     prep_hosp_data 2 0 
 
     egen rep_hosp = tag(hosp_id)
@@ -351,48 +354,6 @@ prog def main_system_summ
         hist d_`var' if rep_sys == 1, xti("Hi/low difference") ti("System `var'")
         graph export $out/sys_disp_hist_`var'.png, replace
     }
-end
-
-prog def main_system_summ_DIRTY
-    prep_hosp_data 2 0 
-
-    egen rep_hosp = tag(hosp_id)
-
-    keep if syssizemin >=5
-
-    gen at_end = always + adopter
-
-    * System size
-    /*
-    hist syssizemax if rep_sys == 1, ti("System size (# hosps {&ge}5)") 
-    graph export $out/sys_histsize.png, width(1500) replace
-    */
-
-    * System changers
-    summ has_system_change if rep_hosp == 1
-    tab year system_change
-
-    * Adoption by system size
-    foreach var in never always adopter at_end {
-        bys sysid: egen mean_`var' = mean(`var')
-        twoway (scatter mean_`var' syssizemin) if rep_sys == 1  , name(`var')
-        graph export $out/summ_sys_takeup_`var'.png, width(1500) replace
-    }
-    * Misc hosp X's dispersion w/in system
-    /*
-    foreach var in frac_mdemp_2010 {
-        bys sysid: egen mean_`var' = mean(`var')
-        bys sysid: egen hi_`var' = pctile(`var'), p(80)
-        bys sysid: egen lo_`var' = pctile(`var'), p(20)
-        twoway (line lo_`var' lo_`var') (scatter hi_`var' lo_`var') if rep_sys ==1, ///
-               yti("Sys's high value (80)") xti("Sys's low value (20)") ///
-               ti("W/in system spread of `var'")
-        graph export $out/sys_disp_scatter_`var'.png, replace
-        gen d_`var' = hi_`var' - lo_`var'
-        hist d_`var' if rep_sys == 1, xti("Hi/low difference") ti("System `var'")
-        graph export $out/sys_disp_hist_`var'.png, replace
-    }
-    */
 end
 
 prog def main_patient_sysfx
@@ -491,7 +452,7 @@ prog def main_patient_sysfx
     }
 end
 
-prog def main_sysfx_1st
+prog def main_hosp_sysfx_1st
 
     * Get hosp-sys xwalk w/ size
     prep_hosp_data 2 0
@@ -623,7 +584,7 @@ prog def main_patient_misc
     }
 end
 
-prog def main_misc_hosp
+prog def main_hosp_misc
 
     prep_hosp_data 2 0
     ren hosp_id provider
@@ -657,35 +618,6 @@ prog def main_misc_hosp
     }
 end
 
-
 } // End quiet
 
-if regexm("`anything'", "plot") {
-    main_plot_means_by_takeup
-}
-if regexm("`anything'", "simpleES") {
-    main_ES_simple
-}
-if regexm("`anything'", "takeupES") {
-    main_pat_ES_by_takeup
-}
-if regexm("`anything'", "system") {
-    if regexm("`anything'", "summ") {
-        main_system_summ
-    }
-    if regexm("`anything'", "sysfx") {
-        main_patient_sysfx
-    }
-    if regexm("`anything'", "1st") {
-        main_sysfx_1st
-    }
-}
-if regexm("`anything'", "misc") {
-    if regexm("`anything'", "pat") {
-        main_patient_misc
-    }
-    if regexm("`anything'", "hosp") {
-        main_misc_hosp
-    }
-}
-
+`subroutine'

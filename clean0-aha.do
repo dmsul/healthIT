@@ -294,15 +294,33 @@ sort hosp_id year sysid
 assert unique_sys <= 1
 drop hosp_rep tag unique_sys max_unique
 
+* Flags for ownership (not constant within `hosp_id`)
+gen owner = .
+replace owner = 3 if owner==. & inrange(cntrl,12,16) // gov_local_aha
+replace owner = 2 if owner==. & inrange(cntrl,21,23) //nfp_aha
+replace owner = 1 if owner==. & inrange(cntrl,30,33) // fp_aha
+
+drop if owner==. & inrange(cntrl,41,48) // federal gov't according to AHA
+assert owner != .
+gen own_profit = owner==1
+gen own_notprofit = owner==2
+gen own_localgov = owner==3
+
 
 /* The 'max' collapse used to include 'npi', but 'npi' is a string. Was it
    supposed to grab the actual numerical NPI? Why? [10/17/14] */
-// XXX collapse doesn't play well with weights!
-gen x = 1
-collapse (mean) serv ///
+/* XXX collapse doesn't play well with weights!
+   `mean` works as expected
+*/
+gen unit_count = 1
+collapse (mean) serv own_frac_profit=own_profit own_frac_notprofit=own_notprofit ///
+                own_frac_localgov=own_localgov ///
          (sd) sdserv = serv ///
          (max) hasserv10 ehlth radmchi /// 
-         (rawsum) x paytot admh ipdh beds_h mcrdch mcripdh mcddch mcdipdh ///
+               own_has_profit=own_profit own_has_notprofit=own_notprofit ///
+               own_has_localgov=own_localgov ///
+         (rawsum) unit_count ///
+                    paytot admh ipdh beds_h mcrdch mcripdh mcddch mcdipdh ///
                     tetot tctot tgtot netot tprtot ///
          (lastnm) sysid /// Already verfied as unique w/in hosp_id, year
          [aw=beds_h], by(hosp_id year)
